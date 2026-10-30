@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SIBAQ '26 Aliyah Assessment Hub
 
-## Getting Started
+A gamified AI assessment platform designed for SIBAQ '26 Aliyah Kulliyyah candidates. Built with Next.js 14 App Router, TypeScript, Tailwind CSS, Duolingo-inspired tactile UI, MongoDB (Mongoose), NVIDIA Nemotron AI with Firecrawl live search fusion, pure Web Audio effects, public shareable links, and real-time coordinator dashboard synchronization.
 
-First, run the development server:
+---
+
+## 🚀 Features
+
+- **Duolingo-Inspired Tactile UI:** Warm Alabaster theme, pure white cards, 3D tactile buttons (`border-b-4 active:translate-y-[2px]`), vibrant academic color accents (Emerald, Sky, Amber, Purple).
+- **Official SIBAQ '26 Programs Pre-Seeded:**
+  - `AX40 - Mr. ENGLISH` (Candidate: Sahal)
+  - `AN35 - LOGICAL REASONING` (Candidates: Ashif KC, Muhammed)
+  - `AX39 - CIVIC QUEST` (Candidate: Zidhan)
+  - `AS18 - BIZ QUIZ` (Candidate: Sinan P)
+- **Multi-AI Engine:** NVIDIA Developer NIM (`nvidia/nemotron-3.5-bolt-e4b`) + OrcaRouter DeepSeek fallback + Firecrawl live web citations for legal and business questions.
+- **Adaptive Question Generator:** 60% targeted at candidate weaknesses with anti-duplication registry.
+- **Pure Web Audio Synthesizer:** Ascending chime, wrong buzzer, fanfare chord, and canvas confetti without external MP3 files.
+- **Public Shareable Quiz Links:** `/quiz/[quizId]` with instant WhatsApp/clipboard sharing.
+- **Live Coordinator Dashboard:** Auto-syncs attendee submissions every 20s with manual sync button and live activity stream.
+- **Database Reset Endpoint:** `POST /api/reset` and `scripts/reset-db.js` to clear test submissions and restore clean rosters anytime.
+
+---
+
+## ⚡ Deployment on Vercel
+
+### Step 1: Upload / Push to GitHub
+1. Create a repository on GitHub (e.g. `https://github.com/new` named `fedex-sibaq` or `sibaq26-hub`).
+2. Push this project code:
+   ```bash
+   git init
+   git add .
+   git commit -m "feat: initial commit for Vercel deployment"
+   git branch -M main
+   git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+   git push -u origin main
+   ```
+
+### Step 2: Import into Vercel
+1. Go to [vercel.com](https://vercel.com) and click **"Add New..."** $\to$ **"Project"**.
+2. Select your imported GitHub repository.
+3. In **Environment Variables**, add the following 4 variables:
+
+| Variable Name | Value |
+|---|---|
+| `MONGODB_URI` | `mongodb+srv://fadilmuhammed526_db_user:MrERzXYEAbPMF3LD@cluster0.xefsnfp.mongodb.net/fedex?retryWrites=true&w=majority` |
+| `NVIDIA_API_KEY` | `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` |
+| `ORCAROUTER_API_KEY` | `sk-orca-LJz3dahk1IOLwr44djCrIZxBIFh8O5jj5jNf7fzE4pP` |
+| `FIRECRAWL_API_KEY` | `fc-20ff19f02a8f411590637b39a008c142` |
+
+4. Click **Deploy**. Vercel will install dependencies, build the Next.js App Router project, and provide your live URL!
+
+---
+
+## 🛠 Local Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
