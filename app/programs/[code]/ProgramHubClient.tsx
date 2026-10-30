@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { IFlashcard } from '@/models'
 import CandidatePill from '@/components/CandidatePill'
@@ -10,7 +10,23 @@ import MissedQuestionsGrid from '@/components/MissedQuestionsGrid'
 import FlipFlashcard from '@/components/FlipFlashcard'
 import TactileButton from '@/components/ui/TactileButton'
 import ChatDrawer from '@/components/ChatDrawer'
-import { BarChart2, BookOpen, Award, Plus, Loader2, Upload, Zap, Cpu, Globe } from 'lucide-react'
+import ShareQuizModal from '@/components/ShareQuizModal'
+import {
+  BarChart2,
+  BookOpen,
+  Award,
+  Plus,
+  Loader2,
+  Upload,
+  Zap,
+  Cpu,
+  Globe,
+  Share2,
+  Check,
+  RefreshCw,
+  Clock,
+  CheckCircle2,
+} from 'lucide-react'
 import { format } from 'date-fns'
 
 type Tab = 'analytics' | 'study' | 'quizzes'
@@ -41,10 +57,25 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
   const [genEngine, setGenEngine] = useState<'nvidia' | 'orca'>('nvidia')
   const [genLiveSearch, setGenLiveSearch] = useState(false)
   const [genError, setGenError] = useState('')
+
+  // Stateful dynamic data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localMaterials, setLocalMaterials] = useState<any[]>(materials)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localQuizzes, setLocalQuizzes] = useState<any[]>(quizzes)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [localAttempts, setLocalAttempts] = useState<any[]>(attempts)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [localCandidates, setLocalCandidates] = useState<any[]>(program.candidates || [])
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<string>('Just now')
+
+  // Share modal state
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [sharedQuiz, setSharedQuiz] = useState<any | null>(null)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null)
+
   const [flashcards, setFlashcards] = useState<IFlashcard[]>(materials[0]?.flashcards || [])
   const [flashcardIdx, setFlashcardIdx] = useState(0)
   const [flashcardDeck, setFlashcardDeck] = useState<IFlashcard[]>(materials[0]?.flashcards || [])
@@ -52,6 +83,42 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
   const [uploadText, setUploadText] = useState('')
 
   const accentBtn = accentBtnMap[program.accentColor] || 'sky'
+
+  // Refresh data function to sync new candidate submissions from MongoDB
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      const res = await fetch(`/api/programs/${program.code}`)
+      const data = await res.json()
+      if (data.attempts) setLocalAttempts(data.attempts)
+      if (data.quizzes) setLocalQuizzes(data.quizzes)
+      if (data.program?.candidates) setLocalCandidates(data.program.candidates)
+      setLastRefreshed(format(new Date(), 'hh:mm:ss a'))
+    } catch (e) {
+      console.error('Failed to sync program data:', e)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // Periodic poll every 20 seconds so external user submissions reach the coordinator automatically
+  useEffect(() => {
+    const timer = setInterval(() => {
+      handleRefresh()
+    }, 20000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program.code])
+
+  const handleCopyQuizLink = (quizId: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const shareUrl = `${origin}/quiz/${quizId}`
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(shareUrl)
+      setCopiedQuizId(quizId)
+      setTimeout(() => setCopiedQuizId(null), 2500)
+    }
+  }
 
   const handleGenerate = async () => {
     setGenerating(true)
@@ -75,6 +142,9 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
       if (data.quiz) {
         setLocalQuizzes((prev) => [data.quiz, ...prev])
         setTab('quizzes')
+        // Automatically open the share modal with the public share link!
+        setSharedQuiz(data.quiz)
+        setIsShareModalOpen(true)
       }
       if (data.flashcards) {
         setFlashcards(data.flashcards)
@@ -123,11 +193,11 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
 
   const currentMaterial = localMaterials[0]
 
-  // Merge enrolled candidates and candidates who have attempts
-  const allCandidateProfiles = [...program.candidates]
-  attempts.forEach((att) => {
+  // Merge enrolled candidates and candidate profiles from attempts
+  const allCandidateProfiles = [...localCandidates]
+  localAttempts.forEach((att) => {
     if (att.candidateName && !allCandidateProfiles.some((c) => c.name.toLowerCase() === att.candidateName.toLowerCase())) {
-      const candAttempts = attempts.filter((a) => a.candidateName.toLowerCase() === att.candidateName.toLowerCase())
+      const candAttempts = localAttempts.filter((a) => a.candidateName.toLowerCase() === att.candidateName.toLowerCase())
       const avg = Math.round(candAttempts.reduce((s, a) => s + a.percentage, 0) / (candAttempts.length || 1))
       allCandidateProfiles.push({
         id: att.candidateName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
@@ -142,29 +212,47 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
     }
   })
 
+  // Recent attempts sorted newest first for live submissions stream
+  const recentSubmissions = [...localAttempts].sort(
+    (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+  )
+
   return (
     <div>
-      {/* Candidate Switcher */}
-      <div className="flex flex-wrap items-center gap-2 mb-6">
+      {/* Candidate Switcher Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setSelectedCandidate('All')}
+            className={`px-4 py-2 rounded-xl border-2 border-b-4 text-sm font-bold transition-all duration-100 active:border-b-2 active:translate-y-[2px]
+              ${selectedCandidate === 'All'
+                ? 'bg-slate-800 border-slate-600 border-b-slate-900 text-white'
+                : 'bg-white border-slate-200 border-b-slate-300 text-slate-600 hover:border-slate-300'
+              }`}
+          >
+            All Candidates
+          </button>
+          {allCandidateProfiles.map((c) => (
+            <CandidatePill
+              key={c.id || c.name}
+              candidate={c}
+              accentColor={program.accentColor}
+              selected={selectedCandidate === c.name}
+              onClick={() => setSelectedCandidate(c.name)}
+            />
+          ))}
+        </div>
+
+        {/* Live Refresh Trigger */}
         <button
-          onClick={() => setSelectedCandidate('All')}
-          className={`px-4 py-2 rounded-xl border-2 border-b-4 text-sm font-bold transition-all duration-100 active:border-b-2 active:translate-y-[2px]
-            ${selectedCandidate === 'All'
-              ? 'bg-slate-800 border-slate-600 border-b-slate-900 text-white'
-              : 'bg-white border-slate-200 border-b-slate-300 text-slate-600 hover:border-slate-300'
-            }`}
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 active:border-b-2 active:translate-y-[2px] transition-all disabled:opacity-50"
+          title="Sync latest quiz results from candidates"
         >
-          All Candidates
+          <RefreshCw className={`w-3.5 h-3.5 text-sky-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span>{isRefreshing ? 'Syncing...' : 'Sync Submissions'}</span>
         </button>
-        {allCandidateProfiles.map((c) => (
-          <CandidatePill
-            key={c.id || c.name}
-            candidate={c}
-            accentColor={program.accentColor}
-            selected={selectedCandidate === c.name}
-            onClick={() => setSelectedCandidate(c.name)}
-          />
-        ))}
       </div>
 
       {/* Tab nav */}
@@ -186,17 +274,80 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
       {/* ─── Analytics Tab ─── */}
       {tab === 'analytics' && (
         <div className="space-y-5">
+          {/* Real-time Submissions Stream Card */}
+          <div className="bg-white border-2 border-sky-300 border-b-4 border-b-sky-500 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <h3 className="text-base font-black text-slate-800">Live Candidate Submissions</h3>
+                <span className="text-xs bg-sky-100 text-sky-700 font-bold px-2 py-0.5 rounded-lg">
+                  {localAttempts.length} Total Attempts
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium">Synced: {lastRefreshed}</span>
+            </div>
+
+            {recentSubmissions.length === 0 ? (
+              <div className="text-center py-6 text-slate-400 text-sm">
+                No submissions recorded yet. Share a quiz link with students to see results appear live!
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto pr-1 space-y-1">
+                {recentSubmissions.slice(0, 6).map((att) => (
+                  <div key={att._id?.toString() || Math.random().toString()} className="py-2.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-700 flex-shrink-0">
+                        {att.candidateName?.slice(0, 2).toUpperCase() || 'ST'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-slate-800 truncate flex items-center gap-1.5">
+                          <span>{att.candidateName}</span>
+                          {att.percentage >= 80 && (
+                            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.2 rounded font-bold">
+                              Mastery
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                          <span className="flex items-center gap-0.5">
+                            <Clock className="w-3 h-3" />
+                            {format(new Date(att.submittedAt), 'MMM d, h:mm a')}
+                          </span>
+                          <span>·</span>
+                          <span>{att.score}/{att.totalQuestions} correct</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span
+                        className={`text-sm font-black px-2.5 py-1 rounded-lg border ${
+                          att.percentage >= 70
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : 'bg-red-50 text-red-600 border-red-200'
+                        }`}
+                      >
+                        {att.percentage}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 rounded-2xl p-5">
             <h3 className="text-base font-black text-slate-800 mb-4">📈 Weekly Improvement</h3>
-            <WeeklyLineChart attempts={attempts} candidateName={selectedCandidate} accentColor={program.accentColor} />
+            <WeeklyLineChart attempts={localAttempts} candidateName={selectedCandidate} accentColor={program.accentColor} />
           </div>
+
           <div className="bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 rounded-2xl p-5">
             <h3 className="text-base font-black text-slate-800 mb-4">🎯 Topic Mastery</h3>
-            <TopicProgressBars attempts={attempts} candidateName={selectedCandidate} />
+            <TopicProgressBars attempts={localAttempts} candidateName={selectedCandidate} />
           </div>
+
           <div className="bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 rounded-2xl p-5">
             <h3 className="text-base font-black text-slate-800 mb-4">📝 Missed Questions Review</h3>
-            <MissedQuestionsGrid attempts={attempts} quizzes={localQuizzes} candidateName={selectedCandidate} />
+            <MissedQuestionsGrid attempts={localAttempts} quizzes={localQuizzes} candidateName={selectedCandidate} />
           </div>
         </div>
       )}
@@ -245,7 +396,7 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
             <div className="flex flex-wrap gap-2 mb-4">
               <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
                 <button onClick={() => setGenEngine('nvidia')} className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md font-bold transition-all ${genEngine === 'nvidia' ? 'bg-white shadow text-sky-700' : 'text-slate-500'}`}>
-                  <Cpu className="w-3 h-3" />NVIDIA
+                  <Cpu className="w-3 h-3" />Nemotron
                 </button>
                 <button onClick={() => setGenEngine('orca')} className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md font-bold transition-all ${genEngine === 'orca' ? 'bg-white shadow text-amber-700' : 'text-slate-500'}`}>
                   <Zap className="w-3 h-3" />DeepSeek
@@ -265,7 +416,7 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
             {genError && <p className="text-red-500 text-xs mb-3 bg-red-50 rounded-lg p-2">{genError}</p>}
 
             <TactileButton accentColor={accentBtn} onClick={handleGenerate} disabled={generating} fullWidth>
-              {generating ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : '✨ Generate with AI'}
+              {generating ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating Quiz &amp; Link...</> : '✨ Generate with AI'}
             </TactileButton>
           </div>
 
@@ -336,10 +487,12 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
           ) : (
             <div className="space-y-3">
               {localQuizzes.map((quiz) => {
-                const quizAttempts = attempts.filter((a) => a.quizId?.toString() === quiz._id?.toString())
+                const quizAttempts = localAttempts.filter((a) => a.quizId?.toString() === quiz._id?.toString())
+                const isCopied = copiedQuizId === quiz._id?.toString()
+
                 return (
-                  <div key={quiz._id?.toString()} className="bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 rounded-2xl p-4">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={quiz._id?.toString()} className="bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 rounded-2xl p-4 transition-all">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-black text-slate-800 truncate">{quiz.title}</h4>
                         <div className="flex flex-wrap gap-2 mt-1.5">
@@ -356,17 +509,35 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
                             {quiz.aiModelUsed}
                           </span>
                           {quizAttempts.length > 0 && (
-                            <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                            <span className="text-xs bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
                               {quizAttempts.length} attempt{quizAttempts.length !== 1 ? 's' : ''}
                             </span>
                           )}
                         </div>
                       </div>
-                      <Link href={`/programs/${program.code}/quiz/${quiz._id}`}>
-                        <TactileButton accentColor={accentBtn} size="sm">
-                          Start Quiz →
-                        </TactileButton>
-                      </Link>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        {/* Share link button */}
+                        <button
+                          onClick={() => handleCopyQuizLink(quiz._id?.toString())}
+                          className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border-2 border-b-4 transition-all duration-100 active:border-b-2 active:translate-y-[2px] ${
+                            isCopied
+                              ? 'bg-green-500 border-green-600 border-b-green-700 text-white shadow-sm'
+                              : 'bg-slate-50 border-slate-200 border-b-slate-300 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {isCopied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5 text-sky-600" />}
+                          <span>{isCopied ? 'Link Copied! ✓' : 'Share Link'}</span>
+                        </button>
+
+                        <Link href={`/programs/${program.code}/quiz/${quiz._id}`} className="flex-1 sm:flex-none">
+                          <TactileButton accentColor={accentBtn} size="sm" fullWidth>
+                            Start Quiz →
+                          </TactileButton>
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 )
@@ -375,6 +546,13 @@ export default function ProgramHubClient({ program, quizzes, materials, attempts
           )}
         </div>
       )}
+
+      {/* Share Quiz Modal */}
+      <ShareQuizModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        quiz={sharedQuiz}
+      />
 
       {/* Chat Drawer */}
       <ChatDrawer
