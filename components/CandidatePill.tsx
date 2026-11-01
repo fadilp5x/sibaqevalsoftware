@@ -6,6 +6,7 @@ const colorMap: Record<string, string> = {
   sky: 'bg-sky-100 text-sky-800 border-sky-300',
   amber: 'bg-amber-100 text-amber-800 border-amber-300',
   purple: 'bg-purple-100 text-purple-800 border-purple-300',
+  rose: 'bg-rose-100 text-rose-800 border-rose-300',
 }
 
 interface CandidatePillProps {

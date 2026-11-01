@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     engine = 'nvidia',
     useLiveSearch = false,
     sessionWindow = 'Morning',
+    difficulty = 'medium',
     questionCount = 10,
     title,
   } = body
@@ -38,22 +39,28 @@ export async function POST(request: NextRequest) {
   }
 
   if (type === 'quiz') {
+    const safeCount = Math.min(Math.max(Number(questionCount) || 10, 5), 50)
     const result = await generateQuiz({
       programCode,
       conceptNote: program.conceptNote,
+      division: program.division || 'Aliyah',
+      difficulty: (['easy', 'medium', 'hard', 'extreme'].includes(difficulty) ? difficulty : 'medium') as 'easy' | 'medium' | 'hard' | 'extreme',
       weaknesses,
       askedRegistry: program.askedQuestionRegistry || [],
-      questionCount: Math.min(Math.max(questionCount, 5), 30),
+      questionCount: safeCount,
       engine,
       liveContext,
     })
 
+    const difficultyUpper = difficulty.toUpperCase()
     const quiz = await Quiz.create({
       programCode,
-      title: title || `${program.title} — AI Quiz (${sessionWindow})`,
+      title: title || `${program.title} — ${difficultyUpper} AI Quiz (${sessionWindow})`,
       sessionWindow,
       durationMinutes: program.durationMinutes,
-      aiModelUsed: engine === 'nvidia' ? 'NVIDIA Nemotron Super 49B' : 'OrcaRouter DeepSeek V4 Flash',
+      difficulty,
+      questionCount: result.questions.length,
+      aiModelUsed: engine === 'nvidia' ? 'NVIDIA Nemotron Super' : 'OrcaRouter DeepSeek V4 Flash',
       questions: result.questions,
     })
 

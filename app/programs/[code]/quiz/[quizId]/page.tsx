@@ -20,8 +20,23 @@ interface Quiz {
   _id: string
   title: string
   durationMinutes: number
+  difficulty?: 'easy' | 'medium' | 'hard' | 'extreme'
   questions: Question[]
   programCode: string
+}
+
+const getDifficultyBadge = (diff?: string) => {
+  switch (diff) {
+    case 'easy':
+      return 'bg-emerald-100 text-emerald-800 border-emerald-300'
+    case 'hard':
+      return 'bg-amber-100 text-amber-800 border-amber-300'
+    case 'extreme':
+      return 'bg-rose-100 text-rose-800 border-rose-300'
+    case 'medium':
+    default:
+      return 'bg-sky-100 text-sky-800 border-sky-300'
+  }
 }
 
 interface Candidate {
@@ -233,12 +248,15 @@ export default function QuizEnginePage() {
 
           {/* Quiz Header Card */}
           <div className="bg-white rounded-2xl border-2 border-slate-200 border-b-4 border-b-slate-300 p-5 mb-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="text-xs font-mono font-bold bg-sky-100 text-sky-700 border border-sky-200 px-2.5 py-0.5 rounded-lg">
                 {code}
               </span>
+              <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getDifficultyBadge(quiz?.difficulty)}`}>
+                {quiz?.difficulty || 'medium'}
+              </span>
               <span className="text-xs font-semibold text-slate-500">
-                SIBAQ &apos;26 Aliyah Assessment
+                SIBAQ &apos;26 Assessment
               </span>
             </div>
             <h1 className="text-2xl font-black text-slate-900 mb-1">{quiz?.title || 'Loading Quiz...'}</h1>
@@ -400,13 +418,16 @@ export default function QuizEnginePage() {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <Link href={`/programs/${code}`} className="text-slate-400 hover:text-slate-600">
                 <ArrowLeft className="w-4 h-4" />
               </Link>
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${getDifficultyBadge(quiz?.difficulty)}`}>
+                {quiz?.difficulty || 'medium'}
+              </span>
               {streak > 1 && (
-                <span className="flex items-center gap-1 text-sm font-black text-amber-600">
-                  <Flame className="w-4 h-4" /> {streak} in a row!
+                <span className="flex items-center gap-1 text-xs font-black text-amber-600">
+                  <Flame className="w-3.5 h-3.5" /> {streak} in a row!
                 </span>
               )}
             </div>

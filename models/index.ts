@@ -27,13 +27,23 @@ const candidateSchema = new Schema<ICandidate>(
 )
 
 /* ─────────────── Program ─────────────── */
+export type DivisionType =
+  | 'Aliyah'
+  | 'Kulliyyah Senior'
+  | 'Kulliyyah Junior'
+  | 'Thanaviyyah'
+  | 'Wusta'
+  | 'Ula'
+  | 'General'
+
 export interface IProgram extends Document {
   code: string
   title: string
+  division: DivisionType
   category: string
   durationMinutes: number
   skill: string
-  accentColor: 'emerald' | 'sky' | 'amber' | 'purple'
+  accentColor: 'emerald' | 'sky' | 'amber' | 'purple' | 'rose'
   conceptNote: string
   candidates: ICandidate[]
   askedQuestionRegistry: string[]
@@ -42,10 +52,19 @@ export interface IProgram extends Document {
 const programSchema = new Schema<IProgram>({
   code: { type: String, required: true, unique: true },
   title: { type: String, required: true },
+  division: {
+    type: String,
+    enum: ['Aliyah', 'Kulliyyah Senior', 'Kulliyyah Junior', 'Thanaviyyah', 'Wusta', 'Ula', 'General'],
+    default: 'Aliyah',
+  },
   category: { type: String, required: true },
   durationMinutes: { type: Number, required: true },
   skill: { type: String, required: true },
-  accentColor: { type: String, enum: ['emerald', 'sky', 'amber', 'purple'], required: true },
+  accentColor: {
+    type: String,
+    enum: ['emerald', 'sky', 'amber', 'purple', 'rose'],
+    required: true,
+  },
   conceptNote: { type: String, required: true },
   candidates: [candidateSchema],
   askedQuestionRegistry: [String],
@@ -86,6 +105,8 @@ const studyMaterialSchema = new Schema<IStudyMaterial>({
 })
 
 /* ─────────────── Quiz ─────────────── */
+export type DifficultyType = 'easy' | 'medium' | 'hard' | 'extreme'
+
 export interface IQuestion {
   questionStem: string
   questionText: string
@@ -100,6 +121,8 @@ export interface IQuiz extends Document {
   title: string
   sessionWindow: 'Morning' | 'Evening'
   durationMinutes: number
+  difficulty: DifficultyType
+  questionCount: number
   aiModelUsed: string
   questions: IQuestion[]
   createdAt: Date
@@ -110,6 +133,12 @@ const quizSchema = new Schema<IQuiz>({
   title: { type: String, required: true },
   sessionWindow: { type: String, enum: ['Morning', 'Evening'], default: 'Morning' },
   durationMinutes: { type: Number, default: 60 },
+  difficulty: {
+    type: String,
+    enum: ['easy', 'medium', 'hard', 'extreme'],
+    default: 'medium',
+  },
+  questionCount: { type: Number, default: 20 },
   aiModelUsed: { type: String, default: 'System' },
   questions: [
     {
@@ -140,6 +169,7 @@ export interface IAttempt extends Document {
   score: number
   totalQuestions: number
   percentage: number
+  difficulty?: DifficultyType
   timeTakenSeconds: number
   submittedAt: Date
 }
@@ -160,6 +190,11 @@ const attemptSchema = new Schema<IAttempt>({
   score: { type: Number, default: 0 },
   totalQuestions: { type: Number, default: 0 },
   percentage: { type: Number, default: 0 },
+  difficulty: {
+    type: String,
+    enum: ['easy', 'medium', 'hard', 'extreme'],
+    default: 'medium',
+  },
   timeTakenSeconds: { type: Number, default: 0 },
   submittedAt: { type: Date, default: Date.now },
 })

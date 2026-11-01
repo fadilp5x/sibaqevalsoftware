@@ -56,6 +56,8 @@ export async function generateWithOrca(
 export interface GenerateQuizParams {
   programCode: string
   conceptNote: string
+  division?: string
+  difficulty?: 'easy' | 'medium' | 'hard' | 'extreme'
   weaknesses: string[]
   askedRegistry: string[]
   questionCount: number
@@ -78,16 +80,45 @@ export interface QuizGenerationResult {
 }
 
 export async function generateQuiz(params: GenerateQuizParams): Promise<QuizGenerationResult> {
-  const { conceptNote, weaknesses, askedRegistry, questionCount, engine, liveContext } = params
+  const {
+    conceptNote,
+    division = 'Aliyah',
+    difficulty = 'medium',
+    weaknesses,
+    askedRegistry,
+    questionCount,
+    engine,
+    liveContext,
+  } = params
+
+  const difficultyGuidelines: Record<string, string> = {
+    easy: 'EASY (FOUNDATION): Generate foundational recall MCQs testing direct definitions, article numbers, primary facts, core terminology, and fundamental rules. Questions must be direct and unambiguous.',
+    medium: `MEDIUM (SIBAQ STANDARD): Generate standard inter-college competition level MCQs testing conceptual clarity and application of the syllabus. Calibrate vocabulary and question depth specifically for the ${division} student division.`,
+    hard: 'HARD (ANALYTICAL): Generate tough analytical MCQs. Include multi-statement verification questions (e.g., "Consider the following statements... Which of the statements given above is/are correct?"), practical scenario applications, and very close, plausible distractors.',
+    extreme: 'EXTREME (OLYMPIAD / FINALS): Generate championship-finals / UPSC Olympiad-grade questions. Use complex Assertion-Reasoning formats ("Assertion [A] and Reason [R]"), subtle constitutional/literary/theological exceptions, multi-layered analytical traps, and deep synthesis.',
+  }
+
+  const difficultyInstruction = difficultyGuidelines[difficulty] || difficultyGuidelines.medium
 
   const systemPrompt = `You are an expert quiz generator for SIBAQ '26 competitive academic programs.
+Student Division: ${division}
 Program concept: ${conceptNote}
-60% of questions MUST target these candidate weak topics: ${weaknesses.length ? weaknesses.join(', ') : 'general syllabus topics'}.
+
+DIFFICULTY LEVEL: ${difficulty.toUpperCase()}
+${difficultyInstruction}
+
+TARGET WEAKNESSES: 60% of questions MUST target these candidate weak topics: ${weaknesses.length ? weaknesses.join(', ') : 'general syllabus topics'}.
 STRICT ANTI-DUPLICATION: Do NOT repeat or paraphrase any of these previously asked question stems: ${askedRegistry.slice(-100).join(' | ') || 'none yet'}.
 ${liveContext ? `Live web context:\n${liveContext}\n` : ''}
-Return ONLY a valid JSON array of ${questionCount} question objects, each with keys: questionStem (short 5-10 word key), questionText (full question), options (array of exactly 4 strings), correctOptionIndex (0-3), topicTag (short topic label), explanation (2-3 sentences explaining the answer).`
+Return ONLY a valid JSON array of ${questionCount} question objects, each with keys:
+- questionStem (short 5-10 word key)
+- questionText (full question)
+- options (array of exactly 4 strings)
+- correctOptionIndex (0-3)
+- topicTag (short topic label)
+- explanation (2-3 sentences explaining the answer and why other options are incorrect)`
 
-  const prompt = `Generate exactly ${questionCount} quiz questions as a JSON array. No markdown fences, no preamble — raw JSON only.`
+  const prompt = `Generate exactly ${questionCount} ${difficulty.toUpperCase()} difficulty quiz questions as a JSON array. No markdown fences, no preamble — raw JSON only.`
 
   let rawText = ''
   try {

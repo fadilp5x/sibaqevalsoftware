@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     quizId,
     programCode,
     candidateName,
+    difficulty: quiz.difficulty || 'medium',
     answers,
     score,
     totalQuestions,

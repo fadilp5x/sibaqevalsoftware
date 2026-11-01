@@ -12,15 +12,17 @@ const accentConfig: Record<string, { header: string; badge: string }> = {
   sky: { header: 'from-sky-500 to-sky-700', badge: 'bg-sky-100 text-sky-700 border-sky-200' },
   amber: { header: 'from-amber-400 to-amber-600', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
   purple: { header: 'from-purple-500 to-purple-700', badge: 'bg-purple-100 text-purple-700 border-purple-200' },
+  rose: { header: 'from-rose-500 to-rose-700', badge: 'bg-rose-100 text-rose-700 border-rose-200' },
 }
 
 async function getData(code: string) {
   await connectDB()
+  const formattedCode = code.toUpperCase()
   const [program, quizzes, materials, attempts] = await Promise.all([
-    Program.findOne({ code }).lean(),
-    Quiz.find({ programCode: code }).sort({ createdAt: -1 }).lean(),
-    StudyMaterial.find({ programCode: code }).sort({ createdAt: -1 }).lean(),
-    Attempt.find({ programCode: code }).sort({ submittedAt: 1 }).lean(),
+    Program.findOne({ code: formattedCode }).lean(),
+    Quiz.find({ programCode: formattedCode }).sort({ createdAt: -1 }).lean(),
+    StudyMaterial.find({ programCode: formattedCode }).sort({ createdAt: -1 }).lean(),
+    Attempt.find({ programCode: formattedCode }).sort({ submittedAt: 1 }).lean(),
   ])
   return { program, quizzes, materials, attempts }
 }
@@ -43,9 +45,12 @@ export default async function ProgramHubPage({ params }: { params: { code: strin
           </Link>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg border bg-white/20 border-white/30 text-white`}>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg border bg-white/20 border-white/30 text-white">
                   {program.code}
+                </span>
+                <span className="text-xs bg-white/20 border border-white/30 px-2 py-1 rounded-lg font-bold uppercase tracking-wider text-[11px]">
+                  {program.division || 'Aliyah'}
                 </span>
                 <span className="text-xs bg-white/20 border border-white/30 px-2 py-1 rounded-lg font-medium">
                   {program.category}
@@ -70,13 +75,13 @@ export default async function ProgramHubPage({ params }: { params: { code: strin
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
         <ProgramHubClient
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          program={program as any}
+          program={JSON.parse(JSON.stringify(program)) as any}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          quizzes={quizzes as any}
+          quizzes={JSON.parse(JSON.stringify(quizzes)) as any}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          materials={materials as any}
+          materials={JSON.parse(JSON.stringify(materials)) as any}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          attempts={attempts as any}
+          attempts={JSON.parse(JSON.stringify(attempts)) as any}
         />
       </div>
     </main>

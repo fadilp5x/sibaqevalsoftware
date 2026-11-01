@@ -28,6 +28,12 @@ const accentConfig: Record<string, { badge: string; btn: string; tag: string; do
     tag: 'bg-purple-500',
     dot: 'bg-purple-400',
   },
+  rose: {
+    badge: 'bg-rose-100 text-rose-700 border-rose-200',
+    btn: 'bg-[#FF4B4B] border-[#EA2B2B] text-white hover:bg-[#e63e3e]',
+    tag: 'bg-rose-500',
+    dot: 'bg-rose-400',
+  },
 }
 
 interface ProgramCardProps {
@@ -36,8 +42,13 @@ interface ProgramCardProps {
 
 export default function ProgramCard({ program }: ProgramCardProps) {
   const cfg = accentConfig[program.accentColor] || accentConfig.sky
-  const avgAccuracy = program.candidates.length
-    ? Math.round(program.candidates.reduce((s: number, c: { overallAccuracy: number }) => s + c.overallAccuracy, 0) / program.candidates.length)
+  const avgAccuracy = program.candidates?.length
+    ? Math.round(
+        program.candidates.reduce(
+          (s: number, c: { overallAccuracy: number }) => s + (c.overallAccuracy || 0),
+          0
+        ) / program.candidates.length
+      )
     : 0
 
   return (
@@ -48,6 +59,7 @@ export default function ProgramCard({ program }: ProgramCardProps) {
         ${program.accentColor === 'sky' ? 'border-sky-300 border-b-4 border-b-sky-500' : ''}
         ${program.accentColor === 'amber' ? 'border-amber-300 border-b-4 border-b-amber-500' : ''}
         ${program.accentColor === 'purple' ? 'border-purple-300 border-b-4 border-b-purple-500' : ''}
+        ${program.accentColor === 'rose' ? 'border-rose-300 border-b-4 border-b-rose-500' : ''}
         hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200
         flex flex-col
       `}
@@ -59,6 +71,10 @@ export default function ProgramCard({ program }: ProgramCardProps) {
             {/* Code badge */}
             <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${cfg.badge}`}>
               {program.code}
+            </span>
+            {/* Division */}
+            <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-lg font-bold uppercase tracking-wider text-[10px]">
+              {program.division || 'Aliyah'}
             </span>
             {/* Category */}
             <span className="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-lg font-medium">
@@ -87,7 +103,7 @@ export default function ProgramCard({ program }: ProgramCardProps) {
           </span>
           <span className="flex items-center gap-1">
             <BookOpen className="w-3.5 h-3.5" />
-            {program.candidates.length} candidate{program.candidates.length !== 1 ? 's' : ''}
+            {program.candidates?.length || 0} candidate{(program.candidates?.length || 0) !== 1 ? 's' : ''}
           </span>
         </div>
 
@@ -98,8 +114,8 @@ export default function ProgramCard({ program }: ProgramCardProps) {
 
         {/* Candidates */}
         <div className="flex flex-wrap gap-2">
-          {program.candidates.map((c: { id: string; name: string; regNo: string; avatarColor: string; streakDays: number; overallAccuracy: number; strengths: string[]; weaknesses: string[] }) => (
-            <CandidatePill key={c.id} candidate={c} accentColor={program.accentColor} />
+          {program.candidates?.map((c) => (
+            <CandidatePill key={c.id || c.name} candidate={c} accentColor={program.accentColor} />
           ))}
         </div>
       </div>

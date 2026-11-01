@@ -6,6 +6,7 @@ const PROGRAMS = [
   {
     code: 'AX40',
     title: 'Mr. ENGLISH',
+    division: 'Aliyah' as const,
     category: 'Category X',
     durationMinutes: 45,
     skill: 'Linguistics',
@@ -28,6 +29,7 @@ const PROGRAMS = [
   {
     code: 'AN35',
     title: 'LOGICAL REASONING',
+    division: 'Aliyah' as const,
     category: 'Category N',
     durationMinutes: 45,
     skill: 'Reasoning',
@@ -60,6 +62,7 @@ const PROGRAMS = [
   {
     code: 'AX39',
     title: 'CIVIC QUEST',
+    division: 'Aliyah' as const,
     category: 'Category X',
     durationMinutes: 45,
     skill: 'General Awareness',
@@ -82,6 +85,7 @@ const PROGRAMS = [
   {
     code: 'AS18',
     title: 'BIZ QUIZ',
+    division: 'Aliyah' as const,
     category: 'Category S',
     durationMinutes: 90,
     skill: 'General Awareness',
@@ -176,6 +180,8 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
         title: `${prog.title} — Starter Assessment`,
         sessionWindow: 'Morning',
         durationMinutes: prog.durationMinutes,
+        difficulty: 'medium',
+        questionCount: questions.length || 5,
         aiModelUsed: 'System',
         questions: questions.map((q) => ({
           questionStem: q.stem,
@@ -215,6 +221,7 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
             quizId: quiz._id,
             programCode: prog.code,
             candidateName: candidate.name,
+            difficulty: 'medium',
             answers,
             score: correctCount,
             totalQuestions: questions.length,

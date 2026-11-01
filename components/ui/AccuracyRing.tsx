@@ -4,6 +4,7 @@ const colorMap: Record<string, string> = {
   amber: '#FFC800',
   coral: '#FF4B4B',
   purple: '#CE82FF',
+  rose: '#FF4B4B',
 }
 
 interface AccuracyRingProps {
