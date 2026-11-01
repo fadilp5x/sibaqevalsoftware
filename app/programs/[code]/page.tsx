@@ -7,14 +7,6 @@ import ProgramHubClient from './ProgramHubClient'
 
 export const dynamic = 'force-dynamic'
 
-const accentConfig: Record<string, { header: string; badge: string }> = {
-  emerald: { header: 'from-green-500 to-green-700', badge: 'bg-green-100 text-green-700 border-green-200' },
-  sky: { header: 'from-sky-500 to-sky-700', badge: 'bg-sky-100 text-sky-700 border-sky-200' },
-  amber: { header: 'from-amber-400 to-amber-600', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
-  purple: { header: 'from-purple-500 to-purple-700', badge: 'bg-purple-100 text-purple-700 border-purple-200' },
-  rose: { header: 'from-rose-500 to-rose-700', badge: 'bg-rose-100 text-rose-700 border-rose-200' },
-}
-
 async function getData(code: string) {
   await connectDB()
   const formattedCode = code.toUpperCase()
@@ -27,52 +19,53 @@ async function getData(code: string) {
   return { program, quizzes, materials, attempts }
 }
 
-export default async function ProgramHubPage({ params }: { params: { code: string } }) {
+export default async function ProgramHubPage({
+  params,
+  searchParams,
+}: {
+  params: { code: string }
+  searchParams?: { candidate?: string }
+}) {
   const { program, quizzes, materials, attempts } = await getData(params.code)
 
   if (!program) notFound()
 
-  const cfg = accentConfig[program.accentColor] || accentConfig.sky
-
   return (
-    <main className="min-h-screen" style={{ background: '#F7F7F5' }}>
-      {/* Program header */}
-      <div className={`bg-gradient-to-br ${cfg.header} text-white`}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-semibold mb-4 transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Campus
+    <main className="min-h-screen bg-[#FAF9F6]">
+      {/* Sleek SST Header */}
+      <div className="bg-[#1E2538] text-white border-b border-[#2A334C]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-5">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-[#8B95A5] hover:text-white text-xs font-bold mb-3 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to SST Programs Hub</span>
           </Link>
-          <div className="flex items-start justify-between gap-4">
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg border bg-white/20 border-white/30 text-white">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-lg bg-[#2A334C] text-white border border-white/10">
                   {program.code}
                 </span>
-                <span className="text-xs bg-white/20 border border-white/30 px-2 py-1 rounded-lg font-bold uppercase tracking-wider text-[11px]">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-white/10 text-slate-300">
                   {program.division || 'Aliyah'}
                 </span>
-                <span className="text-xs bg-white/20 border border-white/30 px-2 py-1 rounded-lg font-medium">
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-white/5 text-slate-400">
                   {program.category}
                 </span>
-                <span className="text-xs bg-white/20 border border-white/30 px-2 py-1 rounded-lg font-medium">
-                  {program.durationMinutes} min
-                </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black leading-tight">{program.title}</h1>
-              <p className="text-white/80 text-sm mt-1">{program.skill}</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                {program.title}
+              </h1>
             </div>
-          </div>
-
-          {/* Concept note */}
-          <div className="mt-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
-            <p className="text-sm text-white/90 leading-relaxed">{program.conceptNote}</p>
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+      {/* Workspace Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
         <ProgramHubClient
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           program={JSON.parse(JSON.stringify(program)) as any}
@@ -82,6 +75,7 @@ export default async function ProgramHubPage({ params }: { params: { code: strin
           materials={JSON.parse(JSON.stringify(materials)) as any}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           attempts={JSON.parse(JSON.stringify(attempts)) as any}
+          initialCandidate={searchParams?.candidate}
         />
       </div>
     </main>

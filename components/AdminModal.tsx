@@ -15,6 +15,8 @@ import {
   BookOpen,
   RotateCcw,
   Loader2,
+  Flame,
+  AlertCircle,
 } from 'lucide-react'
 
 interface AdminModalProps {
@@ -252,8 +254,9 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
             </p>
 
             {authError && (
-              <div className="w-full bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold rounded-xl p-3 mb-4">
-                ⚠️ {authError}
+              <div className="w-full bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold rounded-xl p-3 mb-4 flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{authError}</span>
               </div>
             )}
 
@@ -342,8 +345,9 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
                   {/* Inline candidate editor modal if active */}
                   {editingCandidate && (
                     <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl mb-4">
-                      <h4 className="text-xs font-black text-amber-900 mb-2">
-                        ✏️ Edit Candidate: {editingCandidate.originalName} ({editingCandidate.programCode})
+                      <h4 className="text-xs font-black text-amber-900 mb-2 flex items-center gap-1.5">
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Edit Candidate: {editingCandidate.originalName} ({editingCandidate.programCode})</span>
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
                         <div>
@@ -429,8 +433,15 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
                                 {c.regNo}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-500 mt-0.5">
-                              {c.programTitle} · 🔥 {c.streakDays}d streak · 🎯 {c.overallAccuracy}% accuracy
+                            <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <span>{c.programTitle}</span>
+                              <span>·</span>
+                              <span className="inline-flex items-center gap-0.5">
+                                <Flame className="w-3 h-3 text-[#FF6B4A]" />
+                                {c.streakDays}d streak
+                              </span>
+                              <span>·</span>
+                              <span>{c.overallAccuracy}% accuracy</span>
                             </div>
                           </div>
                         </div>
@@ -468,8 +479,9 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
                   {/* Inline program editor */}
                   {editingProgram && (
                     <div className="p-4 bg-sky-50 border-2 border-sky-300 rounded-2xl mb-4 space-y-3">
-                      <h4 className="text-xs font-black text-sky-900">
-                        ✏️ Edit Program: {editingProgram.code}
+                      <h4 className="text-xs font-black text-sky-900 flex items-center gap-1.5">
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Edit Program: {editingProgram.code}</span>
                       </h4>
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Title</label>
@@ -536,7 +548,7 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
                           </div>
                           <p className="text-xs text-slate-500 line-clamp-1">{p.conceptNote}</p>
                           <div className="text-[11px] text-slate-400 mt-1">
-                            👥 {p.candidates?.length || 0} candidates enrolled · ⏱ {p.durationMinutes}m · ⚡ {p.skill}
+                            {p.candidates?.length || 0} candidates enrolled · {p.durationMinutes}m · {p.skill}
                           </div>
                         </div>
 

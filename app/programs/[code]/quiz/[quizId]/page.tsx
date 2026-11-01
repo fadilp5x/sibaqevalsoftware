@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Volume2, VolumeX, Clock, Flame } from 'lucide-react'
+import { ArrowLeft, Volume2, VolumeX, Clock, Flame, User, CheckCircle2, XCircle, Award } from 'lucide-react'
 import TactileButton from '@/components/ui/TactileButton'
 import AccuracyRing from '@/components/ui/AccuracyRing'
 
@@ -260,15 +260,19 @@ export default function QuizEnginePage() {
               </span>
             </div>
             <h1 className="text-2xl font-black text-slate-900 mb-1">{quiz?.title || 'Loading Quiz...'}</h1>
-            <p className="text-slate-500 text-xs">
-              ⏱ {quiz?.durationMinutes || 45} Minutes · 📝 {quiz?.questions.length || 0} Questions · 🎯 Instant Duolingo-style Feedback
+            <p className="text-slate-500 text-xs flex items-center gap-2 justify-center flex-wrap">
+              <span>{quiz?.durationMinutes || 45} Minutes</span>
+              <span>·</span>
+              <span>{quiz?.questions.length || 0} Questions</span>
+              <span>·</span>
+              <span>Instant Feedback</span>
             </p>
           </div>
 
           {/* Name Entry Card */}
           <div className="bg-white rounded-2xl border-2 border-sky-300 border-b-4 border-b-sky-500 p-5 mb-5 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">👤</span>
+              <User className="w-5 h-5 text-sky-600" />
               <h2 className="text-base font-black text-slate-800">Enter Your Name</h2>
             </div>
             <p className="text-slate-500 text-xs mb-3">
@@ -313,13 +317,14 @@ export default function QuizEnginePage() {
                           key={name}
                           type="button"
                           onClick={() => setNameInput(name)}
-                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border-2 border-b-4 transition-all duration-100 active:border-b-2 active:translate-y-[2px] ${
+                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border-2 border-b-4 transition-all duration-100 active:border-b-2 active:translate-y-[2px] flex items-center gap-1.5 ${
                             isSelected
                               ? 'bg-sky-500 border-sky-600 border-b-sky-700 text-white shadow-sm'
                               : 'bg-slate-100 border-slate-200 border-b-slate-300 text-slate-700 hover:bg-slate-200'
                           }`}
                         >
-                          👤 {name}
+                          <User className="w-3 h-3" />
+                          <span>{name}</span>
                         </button>
                       )
                     })}
@@ -357,7 +362,10 @@ export default function QuizEnginePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-slate-800 text-sm truncate">{c.name}</div>
-                      <div className="text-xs text-slate-400">🔥 {c.streakDays}d streak · {c.regNo || 'Enrolled'}</div>
+                      <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Flame className="w-3 h-3 text-[#FF6B4A]" />
+                        <span>{c.streakDays}d streak · {c.regNo || 'Enrolled'}</span>
+                      </div>
                     </div>
                     <AccuracyRing pct={c.overallAccuracy} accentColor={accentColor} size={40} />
                   </button>
@@ -375,7 +383,9 @@ export default function QuizEnginePage() {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: '#F7F7F5' }}>
         <div className="w-full max-w-md text-center">
-          <div className="text-6xl mb-4">🎉</div>
+          <div className="w-16 h-16 rounded-3xl bg-[#5F4BB6]/15 text-[#5F4BB6] flex items-center justify-center mx-auto mb-4 border-2 border-[#5F4BB6]/30 shadow-md">
+            <Award className="w-8 h-8" />
+          </div>
           <h1 className="text-3xl font-black text-slate-900 mb-2">Quiz Complete!</h1>
           <p className="text-slate-500 mb-8">{selectedCandidate} · {quiz?.title}</p>
 
@@ -385,7 +395,7 @@ export default function QuizEnginePage() {
               {result.score} out of {result.total} correct
             </div>
             <div className={`mt-2 text-sm font-bold ${result.percentage >= 70 ? 'text-green-600' : 'text-amber-600'}`}>
-              {result.percentage >= 80 ? '🌟 Excellent!' : result.percentage >= 70 ? '👍 Good Work!' : '📚 Keep Practicing!'}
+              {result.percentage >= 80 ? 'Excellent Performance!' : result.percentage >= 70 ? 'Good Work!' : 'Keep Practicing!'}
             </div>
           </div>
 
@@ -504,8 +514,9 @@ export default function QuizEnginePage() {
           </TactileButton>
         ) : (
           <div className={`rounded-2xl border-2 border-b-4 p-4 mb-4 ${isCorrect ? 'bg-green-50 border-[#58CC02] border-b-[#46A302]' : 'bg-red-50 border-[#FF4B4B] border-b-[#EA2B2B]'}`}>
-            <div className={`font-black text-base mb-1 ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
-              {isCorrect ? '🎉 AMAZING!' : '❌ INCORRECT'}
+            <div className={`font-black text-base mb-1 flex items-center gap-1.5 ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
+              {isCorrect ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
+              <span>{isCorrect ? 'CORRECT! WELL DONE.' : 'INCORRECT'}</span>
             </div>
             <p className="text-sm text-slate-700 leading-relaxed mb-3">{question.explanation}</p>
             <TactileButton

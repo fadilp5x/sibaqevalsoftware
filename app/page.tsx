@@ -18,7 +18,16 @@ async function getData() {
   return JSON.parse(JSON.stringify(programs))
 }
 
-export default async function CampusDashboard() {
+export default async function CampusDashboard({
+  searchParams,
+}: {
+  searchParams?: { view?: string }
+}) {
   const programs = await getData()
-  return <CampusDashboardClient initialPrograms={programs} />
+  return (
+    <CampusDashboardClient
+      initialPrograms={programs}
+      initialView={searchParams?.view || 'programs'}
+    />
+  )
 }

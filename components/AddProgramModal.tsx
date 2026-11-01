@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Plus, Trash2, Sparkles, BookOpen, Clock, Zap, Loader2, Check } from 'lucide-react'
+import { X, Plus, Trash2, Sparkles, BookOpen, Clock, Zap, Loader2, Check, AlertCircle } from 'lucide-react'
 import { DivisionType } from '@/models'
 
 interface PresetProgram {
@@ -412,8 +412,9 @@ export default function AddProgramModal({ isOpen, onClose, onProgramCreated }: A
         {/* Scrollable Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
           {error && (
-            <div className="bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold rounded-xl p-3">
-              ⚠️ {error}
+            <div className="bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold rounded-xl p-3 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -428,7 +429,7 @@ export default function AddProgramModal({ isOpen, onClose, onProgramCreated }: A
               onChange={(e) => handleSelectPreset(e.target.value)}
               className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-sky-500 focus:bg-white transition-all shadow-inner"
             >
-              <option value="custom">➕ Custom Program (Blank Form)</option>
+              <option value="custom">+ Custom Program (Blank Form)</option>
               <optgroup label="── Aliyah Division Presets ──">
                 {PRESET_PROGRAMS.filter((p) => p.division === 'Aliyah').map((p) => (
                   <option key={p.id} value={p.id}>

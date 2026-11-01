@@ -1,28 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
-  GraduationCap,
-  Flame,
-  Trophy,
+  LayoutGrid,
+  BarChart3,
+  Activity,
+  ShieldCheck,
   Plus,
   Layers,
-  Shield,
-  Activity,
-  LayoutGrid,
+  Share2,
+  Check,
 } from 'lucide-react'
 import ProgramCard from '@/components/ProgramCard'
 import AddProgramModal from '@/components/AddProgramModal'
 import AdminModal from '@/components/AdminModal'
 import ApiTrackerTab from '@/components/ApiTrackerTab'
+import TodayStatsView from '@/components/TodayStatsView'
 import Preloader from '@/components/Preloader'
 import { IProgram } from '@/models'
 
 interface CampusDashboardClientProps {
   initialPrograms: IProgram[]
+  initialView?: string
 }
 
-type MainTab = 'programs' | 'telemetry'
+type MainView = 'programs' | 'stats' | 'api'
 
 type DivisionFilter =
   | 'All'
@@ -32,14 +34,44 @@ type DivisionFilter =
   | 'Thanaviyyah'
   | 'Wusta / Ula'
 
-export default function CampusDashboardClient({ initialPrograms }: CampusDashboardClientProps) {
+export default function CampusDashboardClient({
+  initialPrograms,
+  initialView = 'programs',
+}: CampusDashboardClientProps) {
   const [programs, setPrograms] = useState<IProgram[]>(initialPrograms)
-  const [mainTab, setMainTab] = useState<MainTab>('programs')
+  const [activeView, setActiveView] = useState<MainView>(
+    initialView === 'stats' || initialView === 'api' ? initialView : 'programs'
+  )
   const [activeDivision, setActiveDivision] = useState<DivisionFilter>('All')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isAdminOpen, setIsAdminOpen] = useState(false)
+  const [copiedShare, setCopiedShare] = useState(false)
 
-  // Refresh programs from server when admin makes changes
+  // Sync view with URL query param on mount or popstate
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const v = urlParams.get('view')
+      if (v === 'stats' || v === 'api' || v === 'programs') {
+        setActiveView(v as MainView)
+      }
+    }
+  }, [])
+
+  const setView = (v: MainView) => {
+    setActiveView(v)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (v === 'programs') {
+        url.searchParams.delete('view')
+      } else {
+        url.searchParams.set('view', v)
+      }
+      window.history.pushState({}, '', url.toString())
+    }
+  }
+
+  // Refresh programs when admin makes updates
   const handleDataRefresh = async () => {
     try {
       const res = await fetch('/api/programs')
@@ -52,6 +84,16 @@ export default function CampusDashboardClient({ initialPrograms }: CampusDashboa
     }
   }
 
+  const handleCopyQuickStats = () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const url = `${origin}/?view=stats`
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(url)
+      setCopiedShare(true)
+      setTimeout(() => setCopiedShare(false), 2000)
+    }
+  }
+
   // Filter programs based on selected division tab
   const filteredPrograms = programs.filter((p) => {
     if (activeDivision === 'All') return true
@@ -61,16 +103,14 @@ export default function CampusDashboardClient({ initialPrograms }: CampusDashboa
     return p.division === activeDivision
   })
 
-  // Campus stats
+  // Campus stats calculations
   const allCandidates = programs.flatMap((p) => p.candidates || [])
   const avgReadiness = allCandidates.length
     ? Math.round(
         allCandidates.reduce((s, c) => s + (c.overallAccuracy || 0), 0) / allCandidates.length
       )
     : 0
-  const totalStreakDays = allCandidates.reduce((s, c) => s + (c.streakDays || 0), 0)
 
-  // Division counts
   const getDivisionCount = (filter: DivisionFilter) => {
     if (filter === 'All') return programs.length
     if (filter === 'Wusta / Ula') {
@@ -93,238 +133,297 @@ export default function CampusDashboardClient({ initialPrograms }: CampusDashboa
   }
 
   return (
-    <main className="min-h-screen pb-32 md:pb-12" style={{ background: '#F7F7F5' }}>
+    <div className="min-h-screen bg-[#FAF9F6]">
       {/* Branded First-Visit Preloader */}
       <Preloader />
 
-      {/* Top Header */}
-      <header className="bg-white border-b-2 border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center shadow">
-              <GraduationCap className="w-5 h-5 text-white" />
+      {/* ========================================================= */}
+      {/* 1. DESKTOP FIXED LEFT SIDEBAR (lg:flex)                   */}
+      {/* ========================================================= */}
+      <aside className="hidden lg:flex w-64 bg-[#1E2538] text-[#FAF9F6] min-h-screen fixed left-0 top-0 flex-col justify-between p-5 z-40 border-r border-[#2A334C]">
+        {/* Top Section */}
+        <div>
+          {/* Brand Block */}
+          <div className="flex items-center gap-3.5 mb-8 px-1">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#2A334C] to-[#161B29] border-2 border-[#FF6B4A]/50 flex items-center justify-center shadow-lg">
+              <span className="text-lg font-black text-white tracking-tighter">SST</span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-slate-900 leading-none">SIBAQ &apos;26 Hub</h1>
-                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
-                  Campus 2.0
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 font-medium">Aliyah &amp; Kulliyyah Assessment Hub</p>
-            </div>
-          </div>
-
-          {/* Stats Badges */}
-          <div className="hidden lg:flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-1.5">
-              <Trophy className="w-4 h-4 text-green-600" />
-              <div>
-                <div className="text-xs font-black text-green-700">{avgReadiness}%</div>
-                <div className="text-[9px] text-green-600 uppercase tracking-wide">Campus Ready</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
-              <Flame className="w-4 h-4 text-amber-600" />
-              <div>
-                <div className="text-xs font-black text-amber-700">{totalStreakDays}</div>
-                <div className="text-[9px] text-amber-600 uppercase tracking-wide">Streak Days</div>
+              <div className="text-base font-black text-white leading-none tracking-tight">SST</div>
+              <div className="text-[10px] font-bold text-[#8B95A5] uppercase tracking-wider mt-1">
+                SHIA SIBAQ Training
               </div>
             </div>
           </div>
 
-          {/* Action buttons (Desktop) */}
-          <div className="flex items-center gap-2.5">
-            {/* Admin control button */}
+          {/* Navigation Links */}
+          <nav className="space-y-1.5" aria-label="Main Navigation">
+            {/* 1. Programs */}
             <button
-              onClick={() => setIsAdminOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border-2 border-slate-300 border-b-4 border-b-slate-400 text-slate-700 hover:bg-slate-200 active:translate-y-[2px] active:border-b-2 text-xs font-bold transition-all shadow-sm"
-              title="Admin Control Center (adminshia / 1234)"
-            >
-              <Shield className="w-4 h-4 text-indigo-600" />
-              <span className="hidden sm:inline">Admin</span>
-            </button>
-
-            {/* Add program button */}
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-500 border-2 border-sky-600 border-b-4 border-b-sky-700 text-white font-black text-xs sm:text-sm hover:bg-sky-600 active:translate-y-[2px] active:border-b-2 transition-all duration-100 shadow-sm"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>+ Add Program</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Primary View Switcher: Programs vs API Tracker */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-1 pb-2 flex items-center gap-2 border-t border-slate-100">
-          <button
-            onClick={() => setMainTab('programs')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all border-2 border-b-4 active:border-b-2 active:translate-y-[1px] ${
-              mainTab === 'programs'
-                ? 'bg-sky-500 border-sky-600 border-b-sky-700 text-white shadow-sm'
-                : 'bg-white border-slate-200 border-b-slate-300 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>🏆 Programs Roster</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                mainTab === 'programs' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-500'
+              onClick={() => setView('programs')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-black transition-all ${
+                activeView === 'programs'
+                  ? 'bg-[#FF6B4A] text-white shadow-md'
+                  : 'text-[#8B95A5] hover:text-white hover:bg-white/5'
               }`}
             >
-              {programs.length}
-            </span>
+              <div className="flex items-center gap-3">
+                <LayoutGrid className="w-4 h-4 stroke-[1.75]" />
+                <span>Programs</span>
+              </div>
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                  activeView === 'programs' ? 'bg-black/20 text-white' : 'bg-white/10 text-slate-300'
+                }`}
+              >
+                {programs.length}
+              </span>
+            </button>
+
+            {/* 2. Today's Statistics */}
+            <button
+              onClick={() => setView('stats')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-black transition-all ${
+                activeView === 'stats'
+                  ? 'bg-[#FF6B4A] text-white shadow-md'
+                  : 'text-[#8B95A5] hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <BarChart3 className="w-4 h-4 stroke-[1.75]" />
+                <span>Today&apos;s Statistics</span>
+              </div>
+              <span
+                className={`text-[9px] px-1.5 py-0.5 rounded font-black tracking-wider uppercase ${
+                  activeView === 'stats' ? 'bg-white text-[#FF6B4A]' : 'bg-[#00A896] text-white'
+                }`}
+              >
+                LIVE
+              </span>
+            </button>
+
+            {/* 3. API Telemetry */}
+            <button
+              onClick={() => setView('api')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-black transition-all ${
+                activeView === 'api'
+                  ? 'bg-[#FF6B4A] text-white shadow-md'
+                  : 'text-[#8B95A5] hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Activity className="w-4 h-4 stroke-[1.75]" />
+                <span>API Telemetry</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-[#00A896] animate-pulse" />
+            </button>
+
+            {/* 4. Admin Control */}
+            <button
+              onClick={() => setIsAdminOpen(true)}
+              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-black text-[#8B95A5] hover:text-white hover:bg-white/5 transition-all"
+            >
+              <ShieldCheck className="w-4 h-4 stroke-[1.75] text-[#5F4BB6]" />
+              <span>Admin Control</span>
+            </button>
+          </nav>
+        </div>
+
+        {/* Bottom Sidebar Action Block */}
+        <div className="space-y-2.5 pt-6 border-t border-[#2A334C]">
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="w-full py-3 px-4 rounded-2xl bg-[#FF6B4A] border-2 border-[#E85635] border-b-4 border-b-[#C94224] text-white font-black text-xs hover:bg-[#E85635] active:border-b-2 active:translate-y-[2px] transition-all flex items-center justify-center gap-2 shadow-md"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>+ Add Program</span>
           </button>
 
           <button
-            onClick={() => setMainTab('telemetry')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all border-2 border-b-4 active:border-b-2 active:translate-y-[1px] ${
-              mainTab === 'telemetry'
-                ? 'bg-indigo-600 border-indigo-700 border-b-indigo-900 text-white shadow-sm'
-                : 'bg-white border-slate-200 border-b-slate-300 text-slate-600 hover:bg-slate-50'
-            }`}
+            onClick={handleCopyQuickStats}
+            className="w-full py-2.5 px-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2"
           >
-            <Activity className="w-3.5 h-3.5" />
-            <span>⚡ API Usage &amp; Limits</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-amber-400 text-amber-950 uppercase tracking-wider">
-              Live
-            </span>
+            {copiedShare ? (
+              <Check className="w-3.5 h-3.5 text-[#00A896]" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5 text-slate-400" />
+            )}
+            <span>{copiedShare ? 'Link Copied!' : "Share Today's Stats"}</span>
           </button>
         </div>
-      </header>
+      </aside>
 
-      {/* Main Content Area */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-        {mainTab === 'telemetry' ? (
-          <ApiTrackerTab onTriggerAdmin={() => setIsAdminOpen(true)} />
-        ) : (
-          <>
-            {/* Hero banner */}
-            <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-1">
-                  Campus Programs &amp; Candidate Roster
-                </h2>
-                <p className="text-slate-500 text-xs sm:text-sm">
-                  {programs.length} active programs · {allCandidates.length} enrolled candidates ·{' '}
-                  <span className="text-green-600 font-bold">{avgReadiness}% average campus readiness</span>
-                </p>
+      {/* ========================================================= */}
+      {/* 2. MAIN CONTENT AREA (lg:pl-64)                          */}
+      {/* ========================================================= */}
+      <main className="min-h-screen pb-24 lg:pb-10 lg:pl-64">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
+          {/* VIEW: Today's Statistics */}
+          {activeView === 'stats' && <TodayStatsView programs={programs} />}
+
+          {/* VIEW: API Telemetry */}
+          {activeView === 'api' && (
+            <div className="animate-in fade-in duration-300">
+              <ApiTrackerTab onTriggerAdmin={() => setIsAdminOpen(true)} />
+            </div>
+          )}
+
+          {/* VIEW: Main Programs Grid */}
+          {activeView === 'programs' && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Header Hero */}
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest uppercase bg-[#1E2538] text-white">
+                      SST HUB
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">Campus Division Hub</span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-black text-[#1E2538] tracking-tight">
+                    Programs &amp; Candidate Workspaces
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    {programs.length} active programs · {allCandidates.length} enrolled candidates ·{' '}
+                    <span className="font-bold text-[#00A896]">{avgReadiness}% campus readiness</span>
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#1E2538] text-white font-black text-xs hover:bg-[#2A334C] active:translate-y-[2px] transition-all shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#FF6B4A] stroke-[3]" />
+                    <span>+ Add Program / Preset</span>
+                  </button>
+                </div>
               </div>
 
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="self-start md:self-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 text-slate-700 hover:bg-slate-50 active:translate-y-[2px] active:border-b-2 text-xs font-bold transition-all"
-              >
-                <Plus className="w-3.5 h-3.5 text-sky-600" /> + Add Program / Preset
-              </button>
-            </div>
+              {/* Division Filter Bar */}
+              <div className="overflow-x-auto pb-1 scrollbar-none">
+                <div className="flex items-center gap-2 min-w-max bg-white p-1.5 rounded-2xl border-2 border-slate-200/80 shadow-sm">
+                  <span className="px-3 py-1.5 text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5" /> Division:
+                  </span>
+                  {divisionTabs.map((tab) => {
+                    const count = getDivisionCount(tab.id)
+                    const isActive = activeDivision === tab.id
 
-            {/* Tactile Division Filter Bar */}
-            <div className="mb-6 overflow-x-auto pb-2 scrollbar-none">
-              <div className="flex items-center gap-2 min-w-max bg-white/70 backdrop-blur-sm p-1.5 rounded-2xl border-2 border-slate-200">
-                <span className="px-3 py-1.5 text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5" /> Division:
-                </span>
-                {divisionTabs.map((tab) => {
-                  const count = getDivisionCount(tab.id)
-                  const isActive = activeDivision === tab.id
-
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveDivision(tab.id)}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 border-b-4 text-xs font-black transition-all active:border-b-2 active:translate-y-[2px] ${
-                        isActive
-                          ? 'bg-slate-800 border-slate-600 border-b-slate-900 text-white shadow-sm'
-                          : 'bg-white border-slate-200 border-b-slate-300 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                          isActive ? 'bg-slate-700 text-sky-300' : 'bg-slate-100 text-slate-500'
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveDivision(tab.id)}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+                          isActive
+                            ? 'bg-[#1E2538] text-white shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                         }`}
                       >
-                        {count}
-                      </span>
-                    </button>
-                  )
-                })}
+                        <span>{tab.label}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                            isActive
+                              ? 'bg-[#FF6B4A] text-white'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
+
+              {/* Programs Grid */}
+              {filteredPrograms.length === 0 ? (
+                <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200 p-8">
+                  <h3 className="text-base font-black text-slate-800 mb-1">
+                    No programs enrolled under {activeDivision}
+                  </h3>
+                  <p className="text-slate-400 text-xs mb-4">
+                    Quickly add official SIBAQ presets or create a custom training track.
+                  </p>
+                  <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="px-4 py-2 bg-[#FF6B4A] text-white rounded-xl text-xs font-black active:translate-y-[2px] transition-all"
+                  >
+                    + Add Program to {activeDivision}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {filteredPrograms.map((program) => (
+                    <ProgramCard key={program.code} program={program} />
+                  ))}
+                </div>
+              )}
             </div>
+          )}
 
-            {/* Program grid */}
-            {filteredPrograms.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-3xl border-2 border-dashed border-slate-200 p-8">
-                <div className="text-5xl mb-3">📚</div>
-                <h3 className="text-lg font-black text-slate-800 mb-1">
-                  No programs in {activeDivision} division
-                </h3>
-                <p className="text-slate-500 text-xs mb-4">
-                  Add programs using the official SIBAQ &apos;26 syllabus presets or create a custom one.
-                </p>
-                <button
-                  onClick={() => setIsAddModalOpen(true)}
-                  className="px-4 py-2 bg-sky-500 border-2 border-sky-600 border-b-4 border-b-sky-700 text-white rounded-xl text-xs font-black active:translate-y-[2px] active:border-b-2 transition-all"
-                >
-                  + Add Program to {activeDivision}
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {filteredPrograms.map((program) => (
-                  <ProgramCard key={program.code} program={program} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Footer */}
-        <div className="mt-12 pt-8 border-t border-slate-200 text-center text-xs text-slate-400">
-          SIBAQ &apos;26 Aliyah &amp; Kulliyyah Assessment Hub · Powered by NVIDIA Nemotron AI &amp; Firecrawl
+          {/* Minimal SST Footer */}
+          <footer className="mt-16 pt-8 border-t border-slate-200/80 text-center text-xs text-slate-400">
+            SST — SHIA SIBAQ Training App · High Performance AI Assessment Engine
+          </footer>
         </div>
-      </div>
+      </main>
 
-      {/* Mobile-First Sticky Bottom Navigation Bar (md:hidden) */}
+      {/* ========================================================= */}
+      {/* 3. MOBILE FIXED BOTTOM GLASS DOCK (lg:hidden)             */}
+      {/* ========================================================= */}
       <nav
-        aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t-2 border-slate-200 px-4 py-2 flex items-center justify-around shadow-2xl"
+        aria-label="Mobile Dock Navigation"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#1E2538]/95 backdrop-blur-md text-[#FAF9F6] border-t border-white/10 h-16 px-4 flex items-center justify-around shadow-2xl"
       >
+        {/* Item 1: Programs */}
         <button
-          onClick={() => setMainTab('programs')}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
-            mainTab === 'programs' ? 'text-sky-600 font-black' : 'text-slate-500 font-bold'
+          onClick={() => setView('programs')}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
+            activeView === 'programs' ? 'text-[#FF6B4A] font-black' : 'text-[#8B95A5] font-bold'
           }`}
         >
-          <LayoutGrid className="w-5 h-5" />
+          <LayoutGrid className="w-5 h-5 stroke-[1.75]" />
           <span className="text-[10px]">Programs</span>
         </button>
 
+        {/* Item 2: Stats */}
         <button
-          onClick={() => setMainTab('telemetry')}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
-            mainTab === 'telemetry' ? 'text-indigo-600 font-black' : 'text-slate-500 font-bold'
+          onClick={() => setView('stats')}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
+            activeView === 'stats' ? 'text-[#FF6B4A] font-black' : 'text-[#8B95A5] font-bold'
           }`}
         >
-          <Activity className="w-5 h-5" />
-          <span className="text-[10px]">API Limits</span>
+          <BarChart3 className="w-5 h-5 stroke-[1.75]" />
+          <span className="text-[10px]">Stats</span>
         </button>
 
+        {/* Item 3: Center Floating + Add Button */}
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="flex flex-col items-center justify-center -mt-5 w-12 h-12 rounded-2xl bg-sky-500 border-2 border-sky-600 border-b-4 border-b-sky-700 text-white shadow-lg active:translate-y-[2px]"
+          className="flex flex-col items-center justify-center -mt-6 w-12 h-12 rounded-2xl bg-[#FF6B4A] border-2 border-[#E85635] border-b-4 border-b-[#C94224] text-white shadow-xl active:translate-y-[2px] transition-all"
           title="Add Program"
         >
           <Plus className="w-6 h-6 stroke-[3]" />
         </button>
 
+        {/* Item 4: API Telemetry */}
+        <button
+          onClick={() => setView('api')}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
+            activeView === 'api' ? 'text-[#FF6B4A] font-black' : 'text-[#8B95A5] font-bold'
+          }`}
+        >
+          <Activity className="w-5 h-5 stroke-[1.75]" />
+          <span className="text-[10px]">API</span>
+        </button>
+
+        {/* Item 5: Admin */}
         <button
           onClick={() => setIsAdminOpen(true)}
-          className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-slate-500 hover:text-slate-800 font-bold transition-all"
+          className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[#8B95A5] hover:text-white font-bold transition-all"
         >
-          <Shield className="w-5 h-5 text-indigo-500" />
+          <ShieldCheck className="w-5 h-5 stroke-[1.75] text-[#5F4BB6]" />
           <span className="text-[10px]">Admin</span>
         </button>
       </nav>
@@ -342,6 +441,6 @@ export default function CampusDashboardClient({ initialPrograms }: CampusDashboa
         onClose={() => setIsAdminOpen(false)}
         onDataChanged={handleDataRefresh}
       />
-    </main>
+    </div>
   )
 }

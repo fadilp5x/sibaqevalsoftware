@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check, Share2, ExternalLink, X } from 'lucide-react'
+import { Copy, Check, Share2, ExternalLink, X, Sparkles } from 'lucide-react'
 import TactileButton from '@/components/ui/TactileButton'
 
 interface ShareQuizModalProps {
@@ -35,7 +35,7 @@ export default function ShareQuizModal({ isOpen, onClose, quiz }: ShareQuizModal
 
   const handleWhatsApp = () => {
     const text = encodeURIComponent(
-      `🎯 Take the SIBAQ '26 Assessment Quiz: "${quiz.title}"\n\nClick the link below to enter your name and start:\n${shareUrl}`
+      `SST Assessment Quiz: "${quiz.title}"\n\nClick the link below to enter your name and start:\n${shareUrl}`
     )
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank')
   }
@@ -53,8 +53,8 @@ export default function ShareQuizModal({ isOpen, onClose, quiz }: ShareQuizModal
 
         {/* Modal Header */}
         <div className="text-center mb-5">
-          <div className="w-14 h-14 bg-sky-100 border-2 border-sky-300 text-sky-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3 shadow-inner">
-            🚀
+          <div className="w-14 h-14 bg-sky-100 border-2 border-sky-300 text-sky-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
+            <Sparkles className="w-7 h-7 text-sky-600" />
           </div>
           <h3 className="text-xl font-black text-slate-900 leading-tight">Quiz Ready to Share!</h3>
           <p className="text-xs text-slate-500 mt-1">
