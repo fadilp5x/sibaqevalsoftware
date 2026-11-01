@@ -42,10 +42,10 @@ A gamified AI assessment platform designed for SIBAQ '26 Aliyah Kulliyyah candid
 
 | Variable Name | Value |
 |---|---|
-| `MONGODB_URI` | `mongodb+srv://fadilmuhammed526_db_user:MrERzXYEAbPMF3LD@cluster0.xefsnfp.mongodb.net/fedex?retryWrites=true&w=majority` |
-| `NVIDIA_API_KEY` | `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` |
-| `ORCAROUTER_API_KEY` | `sk-orca-LJz3dahk1IOLwr44djCrIZxBIFh8O5jj5jNf7fzE4pP` |
-| `FIRECRAWL_API_KEY` | `fc-20ff19f02a8f411590637b39a008c142` |
+| `MONGODB_URI` |  |
+| `NVIDIA_API_KEY` | |
+| `ORCAROUTER_API_KEY` | |
+| `FIRECRAWL_API_KEY` |  |
 
 4. Click **Deploy**. Vercel will install dependencies, build the Next.js App Router project, and provide your live URL!
 
