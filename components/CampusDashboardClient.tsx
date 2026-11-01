@@ -93,7 +93,7 @@ export default function CampusDashboardClient({ initialPrograms }: CampusDashboa
   }
 
   return (
-    <main className="min-h-screen pb-24 md:pb-12" style={{ background: '#F7F7F5' }}>
+    <main className="min-h-screen pb-32 md:pb-12" style={{ background: '#F7F7F5' }}>
       {/* Branded First-Visit Preloader */}
       <Preloader />
 
