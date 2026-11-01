@@ -11,6 +11,8 @@ import FlipFlashcard from '@/components/FlipFlashcard'
 import TactileButton from '@/components/ui/TactileButton'
 import ChatDrawer from '@/components/ChatDrawer'
 import ShareQuizModal from '@/components/ShareQuizModal'
+import CoachGenerationOverlay from '@/components/CoachGenerationOverlay'
+import AdminModal from '@/components/AdminModal'
 import {
   BarChart2,
   BookOpen,
@@ -30,6 +32,7 @@ import {
   Target,
   Sun,
   Moon,
+  Shield,
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -97,6 +100,7 @@ export default function ProgramHubClient({
   const [sharedQuiz, setSharedQuiz] = useState<any | null>(null)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null)
+  const [isAdminOpen, setIsAdminOpen] = useState(false)
 
   const [flashcards, setFlashcards] = useState<IFlashcard[]>(materials[0]?.flashcards || [])
   const [flashcardIdx, setFlashcardIdx] = useState(0)
@@ -333,16 +337,28 @@ export default function ProgramHubClient({
           </button>
         </div>
 
-        {/* Live Refresh Trigger */}
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 active:border-b-2 active:translate-y-[2px] transition-all disabled:opacity-50"
-          title="Sync latest quiz results from candidates"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-sky-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span>{isRefreshing ? 'Syncing...' : 'Sync Submissions'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Admin Control Button */}
+          <button
+            onClick={() => setIsAdminOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 border-2 border-slate-300 border-b-4 border-b-slate-400 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-200 active:border-b-2 active:translate-y-[2px] transition-all"
+            title="Admin Control Center (adminshia / 1234)"
+          >
+            <Shield className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Admin</span>
+          </button>
+
+          {/* Live Refresh Trigger */}
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-slate-200 border-b-4 border-b-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 active:border-b-2 active:translate-y-[2px] transition-all disabled:opacity-50"
+            title="Sync latest quiz results from candidates"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-sky-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Syncing...' : 'Sync Submissions'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Inline Candidate Enrollment Modal */}
@@ -840,6 +856,22 @@ export default function ProgramHubClient({
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         quiz={sharedQuiz}
+      />
+
+      {/* Coach Generation Overlay with real-time pipeline status */}
+      <CoachGenerationOverlay
+        isOpen={generating}
+        programCode={program.code}
+        difficulty={genDifficulty}
+        questionCount={genQuestionCount}
+        engine={genEngine}
+      />
+
+      {/* Admin Control Center Modal */}
+      <AdminModal
+        isOpen={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
+        onDataChanged={handleRefresh}
       />
 
       {/* Chat Drawer */}

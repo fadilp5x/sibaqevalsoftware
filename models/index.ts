@@ -199,6 +199,38 @@ const attemptSchema = new Schema<IAttempt>({
   submittedAt: { type: Date, default: Date.now },
 })
 
+/* ─────────────── ApiLog (Live Telemetry & Usage) ─────────────── */
+export interface IApiLog {
+  _id?: Types.ObjectId | string
+  provider: 'nvidia' | 'orcarouter' | 'firecrawl' | 'github-dataset'
+  endpoint: string
+  model: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  latencyMs: number
+  status: 'success' | 'error'
+  error?: string
+  createdAt: Date
+}
+
+const apiLogSchema = new Schema<IApiLog>({
+  provider: {
+    type: String,
+    enum: ['nvidia', 'orcarouter', 'firecrawl', 'github-dataset'],
+    required: true,
+  },
+  endpoint: { type: String, required: true },
+  model: { type: String, default: '' },
+  promptTokens: { type: Number, default: 0 },
+  completionTokens: { type: Number, default: 0 },
+  totalTokens: { type: Number, default: 0 },
+  latencyMs: { type: Number, default: 0 },
+  status: { type: String, enum: ['success', 'error'], default: 'success' },
+  error: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now },
+})
+
 /* ─────────────── Model exports ─────────────── */
 export const Program = (mongoose.models.Program ||
   mongoose.model<IProgram>('Program', programSchema)) as Model<IProgram>
@@ -211,3 +243,6 @@ export const Quiz = (mongoose.models.Quiz ||
 
 export const Attempt = (mongoose.models.Attempt ||
   mongoose.model<IAttempt>('Attempt', attemptSchema)) as Model<IAttempt>
+
+export const ApiLog = (mongoose.models.ApiLog ||
+  mongoose.model<IApiLog>('ApiLog', apiLogSchema)) as Model<IApiLog>
