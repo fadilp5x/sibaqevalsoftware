@@ -31,32 +31,32 @@ export default async function ProgramHubPage({
   if (!program) notFound()
 
   return (
-    <main className="min-h-screen bg-[#FAF9F6]">
-      {/* Sleek SST Header */}
-      <div className="bg-[#1E2538] text-white border-b border-[#2A334C]">
+    <main className="min-h-screen bg-[#F7F7F7]">
+      {/* Duolingo Crisp Header */}
+      <div className="bg-white text-[#4B4B4B] border-b-2 border-[#E5E5E5]">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 py-5">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-[#8B95A5] hover:text-white text-xs font-bold mb-3 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F7F7F7] border border-[#E5E5E5] text-[#777777] hover:text-[#4B4B4B] hover:bg-[#E5E5E5] text-xs font-black uppercase tracking-wider mb-3 transition-colors"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to SST Programs Hub</span>
+            <ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Back to Programs Hub</span>
           </Link>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-lg bg-[#2A334C] text-white border border-white/10">
+                <span className="text-xs font-black px-3 py-1 rounded-xl bg-[#1CB0F6] border-b-2 border-[#1899D6] text-white uppercase tracking-wider">
                   {program.code}
                 </span>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-white/10 text-slate-300">
+                <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-xl bg-[#F7F7F7] text-[#777777] border border-[#E5E5E5]">
                   {program.division || 'Aliyah'}
                 </span>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-white/5 text-slate-400">
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-[#F7F7F7] text-[#777777]">
                   {program.category}
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-black text-[#4B4B4B] tracking-tight uppercase">
                 {program.title}
               </h1>
             </div>

@@ -1,6 +1,9 @@
+'use client'
+
 import Link from 'next/link'
 import { IProgram } from '@/models'
-import { Flame, ChevronRight, Sparkles, Award, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Flame, ChevronRight, Award, TrendingUp, AlertTriangle, AlertOctagon, User } from 'lucide-react'
+import { playClickPop } from '@/lib/sounds'
 
 interface ProgramCardProps {
   program: IProgram
@@ -21,35 +24,35 @@ export default function ProgramCard({ program }: ProgramCardProps) {
   // Hot card condition: avg accuracy >= 85% or max streak >= 5
   const isHot = avgAccuracy >= 85 || maxStreak >= 5
 
-  // 4-Tier Corner Status Badge calculation
+  // 4-Tier Corner Status Badge calculation with exact Duolingo brand colors
   const getCornerBadge = () => {
     if (avgAccuracy >= 90) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-[#5F4BB6]/10 text-[#5F4BB6] border border-[#5F4BB6]/30">
-          <Award className="w-3 h-3" />
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[10px] font-black tracking-wider uppercase bg-[#CE82FF] border-b-2 border-[#A568CC] text-white shadow-xs">
+          <Award className="w-3.5 h-3.5 stroke-[2.5]" />
           EXCELLENT
         </span>
       )
     }
     if (avgAccuracy >= 75) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-[#00A896]/10 text-[#00A896] border border-[#00A896]/30">
-          <TrendingUp className="w-3 h-3" />
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[10px] font-black tracking-wider uppercase bg-[#58CC02] border-b-2 border-[#58A700] text-white shadow-xs">
+          <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
           GOOD
         </span>
       )
     }
     if (avgAccuracy >= 50) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-amber-500/10 text-amber-700 border border-amber-500/30">
-          <AlertTriangle className="w-3 h-3" />
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[10px] font-black tracking-wider uppercase bg-[#FFC800] border-b-2 border-[#E5B400] text-[#4B4B4B] shadow-xs">
+          <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
           WARNING
         </span>
       )
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-rose-500/10 text-rose-600 border border-rose-500/30">
-        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[10px] font-black tracking-wider uppercase bg-[#FF4B4B] border-b-2 border-[#EA2B2B] text-white shadow-xs animate-pulse">
+        <AlertOctagon className="w-3.5 h-3.5 stroke-[2.5]" />
         DANGER
       </span>
     )
@@ -57,45 +60,45 @@ export default function ProgramCard({ program }: ProgramCardProps) {
 
   // Student Mini Status Dot
   const getCandidateDot = (acc: number) => {
-    if (acc >= 90) return 'bg-[#5F4BB6]'
-    if (acc >= 75) return 'bg-[#00A896]'
-    if (acc >= 50) return 'bg-amber-500'
-    return 'bg-rose-500'
+    if (acc >= 90) return 'bg-[#CE82FF]'
+    if (acc >= 75) return 'bg-[#58CC02]'
+    if (acc >= 50) return 'bg-[#FFC800]'
+    return 'bg-[#FF4B4B]'
   }
 
   // Dynamic Coach Micro-Message
   const getCoachMessage = () => {
     if (avgAccuracy >= 90) return 'Championship Pace: Candidate mastery is exceptional.'
-    if (avgAccuracy >= 80) return 'Strong Momentum: Consistent practice yield.'
+    if (avgAccuracy >= 80) return 'Strong Momentum: Consistent daily practice yield.'
     if (avgAccuracy >= 60) return 'Targeted Practice Recommended: Review weak topics.'
     if (candidates.length === 0) return 'Awaiting initial candidate enrollment.'
-    return 'Action Needed: Launch a 1-Tap Revenge Quiz to crush errors.'
+    return 'Action Needed: Launch a 1-Tap Revenge Drill to crush errors.'
   }
 
   return (
     <div
       className={`
-        bg-white rounded-3xl border-2 transition-all duration-200 flex flex-col justify-between overflow-hidden
+        bg-white rounded-2xl border-2 border-b-4 transition-transform duration-75 flex flex-col justify-between overflow-hidden
         ${
           isHot
-            ? 'border-[#FF6B4A]/50 shadow-[0_4px_24px_rgba(255,107,74,0.12)] ring-1 ring-[#FF6B4A]/30'
-            : 'border-slate-200/90 shadow-sm hover:shadow-md hover:border-slate-300'
+            ? 'border-[#FF9600] border-b-[#E58700] shadow-xs'
+            : 'border-[#E5E5E5] border-b-[#DCDCDC] hover:-translate-y-0.5'
         }
       `}
     >
       <div className="p-5 sm:p-6">
-        {/* Top Row: Code Pill + Division & Corner Monitoring Badge */}
+        {/* Top Row: Program Code Pill (Macaw Blue) + Division + Corner Status Pill */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-black px-2.5 py-1 rounded-xl bg-[#1E2538] text-white border border-[#2A334C]">
+            <span className="text-xs font-black px-3 py-1 rounded-xl bg-[#1CB0F6] border-b-2 border-[#1899D6] text-white uppercase tracking-wider">
               {program.code}
             </span>
-            <span className="text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200">
+            <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-xl bg-[#F7F7F7] text-[#777777] border border-[#E5E5E5]">
               {program.division || 'Aliyah'}
             </span>
             {isHot && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-[#FF6B4A] bg-[#FF6B4A]/10 border border-[#FF6B4A]/30 px-2 py-0.5 rounded-full animate-pulse">
-                <Flame className="w-3 h-3 text-[#FF6B4A] fill-[#FF6B4A]" />
+              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-[#FF9600] bg-[#FFF0D6] border border-[#FF9600] px-2 py-0.5 rounded-lg animate-pulse">
+                <Flame className="w-3.5 h-3.5 text-[#FF9600] fill-[#FF9600] stroke-[2]" />
                 HOT
               </span>
             )}
@@ -104,14 +107,14 @@ export default function ProgramCard({ program }: ProgramCardProps) {
         </div>
 
         {/* Program Title */}
-        <h3 className="text-xl font-black text-[#1E2538] tracking-tight mb-4 leading-snug">
+        <h3 className="text-xl font-black text-[#4B4B4B] tracking-tight mb-4 leading-snug">
           {program.title}
         </h3>
 
-        {/* Compact Candidate Micro-Rows */}
+        {/* Candidate Mini-Rows */}
         <div className="space-y-2 mb-4">
           {candidates.length === 0 ? (
-            <div className="text-xs text-slate-400 italic py-2">
+            <div className="text-xs font-bold text-[#777777] py-2">
               No candidates enrolled yet.
             </div>
           ) : (
@@ -119,62 +122,67 @@ export default function ProgramCard({ program }: ProgramCardProps) {
               <Link
                 key={c.id || c.name}
                 href={`/programs/${program.code}?candidate=${encodeURIComponent(c.name)}`}
-                className="flex items-center justify-between p-2.5 rounded-2xl bg-[#FAF9F6] border border-slate-200/80 hover:bg-slate-100/80 transition-colors group"
+                onClick={() => playClickPop()}
+                className="flex items-center justify-between p-2.5 rounded-xl bg-[#F7F7F7] border border-[#E5E5E5] hover:bg-[#DDF4FF] hover:border-[#1CB0F6] transition-colors group"
               >
                 <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#777777]">
+                    <User className="w-3.5 h-3.5 stroke-[2.5]" />
+                  </div>
                   <span
                     className={`w-2.5 h-2.5 rounded-full ${getCandidateDot(
                       c.overallAccuracy || 0
                     )}`}
                   />
-                  <span className="text-xs font-black text-[#1E2538] group-hover:text-[#FF6B4A] transition-colors">
+                  <span className="text-xs font-black text-[#4B4B4B] group-hover:text-[#1899D6] transition-colors">
                     {c.name}
                   </span>
                   {c.streakDays && c.streakDays > 0 ? (
-                    <span className="flex items-center gap-0.5 text-[10px] font-bold text-slate-500">
-                      <Flame className="w-3 h-3 text-[#FF6B4A]" />
+                    <span className="flex items-center gap-0.5 text-[11px] font-black text-[#FF9600]">
+                      <Flame className="w-3.5 h-3.5 text-[#FF9600] fill-[#FF9600] stroke-[2]" />
                       {c.streakDays}d
                     </span>
                   ) : null}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black text-slate-800">
+                  <span className="text-xs font-black text-[#4B4B4B]">
                     {c.overallAccuracy || 0}%
                   </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#FF6B4A] transition-colors" />
+                  <ChevronRight className="w-3.5 h-3.5 text-[#777777] group-hover:text-[#1899D6] transition-colors stroke-[2.5]" />
                 </div>
               </Link>
             ))
           )}
           {candidates.length > 3 && (
-            <div className="text-[11px] font-bold text-slate-400 text-center pt-1">
+            <div className="text-[11px] font-black text-[#777777] text-center pt-1 uppercase">
               + {candidates.length - 3} more candidate{candidates.length - 3 > 1 ? 's' : ''}
             </div>
           )}
         </div>
       </div>
 
-      {/* Card Footer: Micro-Coach Message + Open Hub CTA */}
+      {/* Card Footer: Micro-Coach Message + 3D CTA Button */}
       <div className="px-5 pb-5 pt-0">
-        <div className="mb-3 text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/60">
-          <Sparkles className="w-3.5 h-3.5 text-[#00A896] shrink-0" />
+        <div className="mb-3 text-[11px] font-bold text-[#777777] flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F7F7F7] border border-[#E5E5E5]">
+          <span className="w-2 h-2 rounded-full bg-[#58CC02]" />
           <span className="truncate">{getCoachMessage()}</span>
         </div>
 
-        <Link href={`/programs/${program.code}`} className="block">
+        <Link href={`/programs/${program.code}`} className="block" onClick={() => playClickPop()}>
           <button
             className={`
-              w-full py-2.5 px-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2
+              w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all duration-75 flex items-center justify-center gap-2 select-none
+              border-b-4 active:border-b-0 active:translate-y-[4px]
               ${
                 isHot
-                  ? 'bg-[#FF6B4A] text-white border-2 border-[#E85635] border-b-4 border-b-[#C94224] hover:bg-[#E85635] active:border-b-2 active:translate-y-[2px] shadow-sm'
-                  : 'bg-[#1E2538] text-white border-2 border-[#161B29] border-b-4 border-b-[#0D101A] hover:bg-[#2A334C] active:border-b-2 active:translate-y-[2px]'
+                  ? 'bg-[#FF9600] text-white border-[#E58700] hover:bg-[#E58700]'
+                  : 'bg-[#58CC02] text-white border-[#58A700] hover:bg-[#58A700]'
               }
             `}
           >
-            <span>Open Candidate Workspace</span>
-            <ChevronRight className="w-4 h-4" />
+            <span>Train Candidates</span>
+            <ChevronRight className="w-4 h-4 stroke-[2.5]" />
           </button>
         </Link>
       </div>

@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const viewport: Viewport = {
-  themeColor: '#1E2538',
+  themeColor: '#58CC02',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   applicationName: 'SST',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'SST',
   },
   formatDetection: {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className} style={{ background: '#FAF9F6' }}>
+      <body className={inter.className} style={{ background: '#F7F7F7' }}>
         {children}
       </body>
     </html>

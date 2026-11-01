@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'High-performance AI coaching & campus readiness hub for SHIA SIBAQ candidates',
     start_url: '/',
     display: 'standalone',
-    background_color: '#FAF9F6',
-    theme_color: '#1E2538',
+    background_color: '#F7F7F7',
+    theme_color: '#58CC02',
     orientation: 'portrait',
     icons: [
       {

@@ -10,6 +10,8 @@ import {
   Layers,
   Share2,
   Check,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import ProgramCard from '@/components/ProgramCard'
 import AddProgramModal from '@/components/AddProgramModal'
@@ -18,6 +20,7 @@ import ApiTrackerTab from '@/components/ApiTrackerTab'
 import TodayStatsView from '@/components/TodayStatsView'
 import Preloader from '@/components/Preloader'
 import { IProgram } from '@/models'
+import { isMuted, toggleMute, playClickPop } from '@/lib/sounds'
 
 interface CampusDashboardClientProps {
   initialPrograms: IProgram[]
@@ -46,8 +49,17 @@ export default function CampusDashboardClient({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isAdminOpen, setIsAdminOpen] = useState(false)
   const [copiedShare, setCopiedShare] = useState(false)
+  const [soundMuted, setSoundMuted] = useState(false)
 
-  // Sync view with URL query param on mount or popstate
+  // Initialize sound state
+  useEffect(() => {
+    setSoundMuted(isMuted())
+    const handleMuteEvent = () => setSoundMuted(isMuted())
+    window.addEventListener('sst-mute-change', handleMuteEvent)
+    return () => window.removeEventListener('sst-mute-change', handleMuteEvent)
+  }, [])
+
+  // Sync view with URL query param on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search)
@@ -58,7 +70,16 @@ export default function CampusDashboardClient({
     }
   }, [])
 
+  const handleSoundToggle = () => {
+    const next = toggleMute()
+    setSoundMuted(next)
+    if (!next) {
+      playClickPop()
+    }
+  }
+
   const setView = (v: MainView) => {
+    playClickPop()
     setActiveView(v)
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href)
@@ -71,7 +92,6 @@ export default function CampusDashboardClient({
     }
   }
 
-  // Refresh programs when admin makes updates
   const handleDataRefresh = async () => {
     try {
       const res = await fetch('/api/programs')
@@ -85,6 +105,7 @@ export default function CampusDashboardClient({
   }
 
   const handleCopyQuickStats = () => {
+    playClickPop()
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const url = `${origin}/?view=stats`
     if (navigator?.clipboard) {
@@ -133,47 +154,47 @@ export default function CampusDashboardClient({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6]">
-      {/* Branded First-Visit Preloader */}
+    <div className="min-h-screen bg-[#F7F7F7]">
+      {/* Duolingo Bouncing Shield Preloader */}
       <Preloader />
 
       {/* ========================================================= */}
-      {/* 1. DESKTOP FIXED LEFT SIDEBAR (lg:flex)                   */}
+      {/* 1. DESKTOP FIXED LEFT SIDEBAR (lg:flex) — DUOLINGO WHITE  */}
       {/* ========================================================= */}
-      <aside className="hidden lg:flex w-64 bg-[#1E2538] text-[#FAF9F6] min-h-screen fixed left-0 top-0 flex-col justify-between p-5 z-40 border-r border-[#2A334C]">
+      <aside className="hidden lg:flex w-64 bg-white text-[#4B4B4B] min-h-screen fixed left-0 top-0 flex-col justify-between p-5 z-40 border-r-2 border-[#E5E5E5] select-none">
         {/* Top Section */}
         <div>
           {/* Brand Block */}
           <div className="flex items-center gap-3.5 mb-8 px-1">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#2A334C] to-[#161B29] border-2 border-[#FF6B4A]/50 flex items-center justify-center shadow-lg">
-              <span className="text-lg font-black text-white tracking-tighter">SST</span>
+            <div className="w-12 h-12 rounded-2xl bg-[#58CC02] border-2 border-[#58A700] border-b-4 flex items-center justify-center shadow-xs">
+              <span className="text-xl font-black text-white tracking-wider leading-none">SST</span>
             </div>
             <div>
-              <div className="text-base font-black text-white leading-none tracking-tight">SST</div>
-              <div className="text-[10px] font-bold text-[#8B95A5] uppercase tracking-wider mt-1">
-                SHIA SIBAQ Training
+              <div className="text-lg font-black text-[#4B4B4B] leading-none tracking-tight">SST</div>
+              <div className="text-[11px] font-extrabold text-[#777777] uppercase tracking-wider mt-1">
+                SIBAQ Training
               </div>
             </div>
           </div>
 
           {/* Navigation Links */}
-          <nav className="space-y-1.5" aria-label="Main Navigation">
+          <nav className="space-y-2" aria-label="Main Navigation">
             {/* 1. Programs */}
             <button
               onClick={() => setView('programs')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-black transition-all ${
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all select-none ${
                 activeView === 'programs'
-                  ? 'bg-[#FF6B4A] text-white shadow-md'
-                  : 'text-[#8B95A5] hover:text-white hover:bg-white/5'
+                  ? 'bg-[#DDF4FF] text-[#1899D6] border-2 border-[#84D8FF] border-b-4 border-b-[#1899D6]'
+                  : 'text-[#777777] hover:bg-[#F7F7F7] hover:text-[#4B4B4B]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <LayoutGrid className="w-4 h-4 stroke-[1.75]" />
+                <LayoutGrid className="w-5 h-5 stroke-[2.5]" />
                 <span>Programs</span>
               </div>
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                  activeView === 'programs' ? 'bg-black/20 text-white' : 'bg-white/10 text-slate-300'
+                className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                  activeView === 'programs' ? 'bg-[#1899D6] text-white' : 'bg-[#E5E5E5] text-[#777777]'
                 }`}
               >
                 {programs.length}
@@ -183,21 +204,17 @@ export default function CampusDashboardClient({
             {/* 2. Today's Statistics */}
             <button
               onClick={() => setView('stats')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-black transition-all ${
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all select-none ${
                 activeView === 'stats'
-                  ? 'bg-[#FF6B4A] text-white shadow-md'
-                  : 'text-[#8B95A5] hover:text-white hover:bg-white/5'
+                  ? 'bg-[#DDF4FF] text-[#1899D6] border-2 border-[#84D8FF] border-b-4 border-b-[#1899D6]'
+                  : 'text-[#777777] hover:bg-[#F7F7F7] hover:text-[#4B4B4B]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <BarChart3 className="w-4 h-4 stroke-[1.75]" />
-                <span>Today&apos;s Statistics</span>
+                <BarChart3 className="w-5 h-5 stroke-[2.5]" />
+                <span>Statistics</span>
               </div>
-              <span
-                className={`text-[9px] px-1.5 py-0.5 rounded font-black tracking-wider uppercase ${
-                  activeView === 'stats' ? 'bg-white text-[#FF6B4A]' : 'bg-[#00A896] text-white'
-                }`}
-              >
+              <span className="text-[9px] px-2 py-0.5 rounded-md font-black tracking-wider uppercase bg-[#58CC02] text-white">
                 LIVE
               </span>
             </button>
@@ -205,50 +222,76 @@ export default function CampusDashboardClient({
             {/* 3. API Telemetry */}
             <button
               onClick={() => setView('api')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-black transition-all ${
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all select-none ${
                 activeView === 'api'
-                  ? 'bg-[#FF6B4A] text-white shadow-md'
-                  : 'text-[#8B95A5] hover:text-white hover:bg-white/5'
+                  ? 'bg-[#DDF4FF] text-[#1899D6] border-2 border-[#84D8FF] border-b-4 border-b-[#1899D6]'
+                  : 'text-[#777777] hover:bg-[#F7F7F7] hover:text-[#4B4B4B]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Activity className="w-4 h-4 stroke-[1.75]" />
+                <Activity className="w-5 h-5 stroke-[2.5]" />
                 <span>API Telemetry</span>
               </div>
-              <span className="w-2 h-2 rounded-full bg-[#00A896] animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#58CC02] animate-pulse" />
             </button>
 
             {/* 4. Admin Control */}
             <button
-              onClick={() => setIsAdminOpen(true)}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-black text-[#8B95A5] hover:text-white hover:bg-white/5 transition-all"
+              onClick={() => {
+                playClickPop()
+                setIsAdminOpen(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-[#777777] hover:bg-[#F7F7F7] hover:text-[#4B4B4B] transition-all select-none"
             >
-              <ShieldCheck className="w-4 h-4 stroke-[1.75] text-[#5F4BB6]" />
-              <span>Admin Control</span>
+              <ShieldCheck className="w-5 h-5 stroke-[2.5] text-[#CE82FF]" />
+              <span>Admin Panel</span>
             </button>
           </nav>
         </div>
 
         {/* Bottom Sidebar Action Block */}
-        <div className="space-y-2.5 pt-6 border-t border-[#2A334C]">
+        <div className="space-y-3 pt-6 border-t-2 border-[#E5E5E5]">
+          {/* Sound Mute / Unmute Toggle */}
           <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="w-full py-3 px-4 rounded-2xl bg-[#FF6B4A] border-2 border-[#E85635] border-b-4 border-b-[#C94224] text-white font-black text-xs hover:bg-[#E85635] active:border-b-2 active:translate-y-[2px] transition-all flex items-center justify-center gap-2 shadow-md"
+            onClick={handleSoundToggle}
+            className="w-full py-2.5 px-3 rounded-xl bg-[#F7F7F7] border border-[#E5E5E5] text-xs font-extrabold text-[#777777] hover:text-[#4B4B4B] hover:bg-[#E5E5E5] transition-all flex items-center justify-center gap-2 select-none"
+          >
+            {soundMuted ? (
+              <>
+                <VolumeX className="w-4 h-4 text-[#FF4B4B] stroke-[2.5]" />
+                <span>Sound: MUTED</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-4 h-4 text-[#58CC02] stroke-[2.5]" />
+                <span>Sound: ACTIVE</span>
+              </>
+            )}
+          </button>
+
+          {/* + Add Program 3D Button */}
+          <button
+            onClick={() => {
+              playClickPop()
+              setIsAddModalOpen(true)
+            }}
+            className="w-full py-3 px-4 rounded-2xl bg-[#58CC02] border-2 border-[#58A700] border-b-4 text-white font-black text-xs uppercase tracking-wider hover:bg-[#58A700] active:border-b-0 active:translate-y-[4px] transition-all duration-75 flex items-center justify-center gap-2 shadow-xs select-none"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>+ Add Program</span>
           </button>
 
+          {/* Share Today's Stats Link */}
           <button
             onClick={handleCopyQuickStats}
-            className="w-full py-2.5 px-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2"
+            className="w-full py-2.5 px-3 rounded-2xl bg-white border-2 border-[#E5E5E5] text-xs font-extrabold text-[#777777] hover:bg-[#F7F7F7] hover:text-[#4B4B4B] transition-all flex items-center justify-center gap-2 select-none"
           >
             {copiedShare ? (
-              <Check className="w-3.5 h-3.5 text-[#00A896]" />
+              <Check className="w-4 h-4 text-[#58CC02] stroke-[2.5]" />
             ) : (
-              <Share2 className="w-3.5 h-3.5 text-slate-400" />
+              <Share2 className="w-4 h-4 text-[#777777] stroke-[2.5]" />
             )}
-            <span>{copiedShare ? 'Link Copied!' : "Share Today's Stats"}</span>
+            <span>{copiedShare ? 'Link Copied!' : "Share Stats Link"}</span>
           </button>
         </div>
       </aside>
@@ -274,27 +317,30 @@ export default function CampusDashboardClient({
               {/* Header Hero */}
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest uppercase bg-[#1E2538] text-white">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="px-2.5 py-1 rounded-xl text-[10px] font-black tracking-wider uppercase bg-[#1CB0F6] border-b-2 border-[#1899D6] text-white">
                       SST HUB
                     </span>
-                    <span className="text-xs text-slate-400 font-medium">Campus Division Hub</span>
+                    <span className="text-xs font-bold text-[#777777]">SIBAQ &apos;26 Al-Aliyah Campus Hub</span>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-[#1E2538] tracking-tight">
+                  <h1 className="text-2xl sm:text-3xl font-black text-[#4B4B4B] tracking-tight uppercase">
                     Programs &amp; Candidate Workspaces
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm font-bold text-[#777777] mt-1">
                     {programs.length} active programs · {allCandidates.length} enrolled candidates ·{' '}
-                    <span className="font-bold text-[#00A896]">{avgReadiness}% campus readiness</span>
+                    <span className="font-black text-[#58CC02]">{avgReadiness}% campus readiness</span>
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2 self-start sm:self-auto">
                   <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#1E2538] text-white font-black text-xs hover:bg-[#2A334C] active:translate-y-[2px] transition-all shadow-sm"
+                    onClick={() => {
+                      playClickPop()
+                      setIsAddModalOpen(true)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#58CC02] border-2 border-[#58A700] border-b-4 text-white font-black text-xs uppercase tracking-wider hover:bg-[#58A700] active:border-b-0 active:translate-y-[4px] transition-all duration-75 select-none"
                   >
-                    <Plus className="w-3.5 h-3.5 text-[#FF6B4A] stroke-[3]" />
+                    <Plus className="w-4 h-4 stroke-[3]" />
                     <span>+ Add Program / Preset</span>
                   </button>
                 </div>
@@ -302,9 +348,9 @@ export default function CampusDashboardClient({
 
               {/* Division Filter Bar */}
               <div className="overflow-x-auto pb-1 scrollbar-none">
-                <div className="flex items-center gap-2 min-w-max bg-white p-1.5 rounded-2xl border-2 border-slate-200/80 shadow-sm">
-                  <span className="px-3 py-1.5 text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5" /> Division:
+                <div className="flex items-center gap-2 min-w-max bg-white p-2 rounded-2xl border-2 border-[#E5E5E5] border-b-4 shadow-xs">
+                  <span className="px-3 py-1.5 text-xs font-black text-[#777777] uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 stroke-[2.5]" /> Division:
                   </span>
                   {divisionTabs.map((tab) => {
                     const count = getDivisionCount(tab.id)
@@ -313,19 +359,22 @@ export default function CampusDashboardClient({
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => setActiveDivision(tab.id)}
-                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+                        onClick={() => {
+                          playClickPop()
+                          setActiveDivision(tab.id)
+                        }}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all select-none ${
                           isActive
-                            ? 'bg-[#1E2538] text-white shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            ? 'bg-[#1CB0F6] border-b-2 border-[#1899D6] text-white shadow-xs'
+                            : 'text-[#777777] hover:text-[#4B4B4B] hover:bg-[#F7F7F7]'
                         }`}
                       >
                         <span>{tab.label}</span>
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
                             isActive
-                              ? 'bg-[#FF6B4A] text-white'
-                              : 'bg-slate-100 text-slate-500'
+                              ? 'bg-white text-[#1899D6]'
+                              : 'bg-[#E5E5E5] text-[#777777]'
                           }`}
                         >
                           {count}
@@ -338,16 +387,19 @@ export default function CampusDashboardClient({
 
               {/* Programs Grid */}
               {filteredPrograms.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200 p-8">
-                  <h3 className="text-base font-black text-slate-800 mb-1">
+                <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-[#E5E5E5] p-8">
+                  <h3 className="text-base font-black text-[#4B4B4B] mb-1 uppercase">
                     No programs enrolled under {activeDivision}
                   </h3>
-                  <p className="text-slate-400 text-xs mb-4">
+                  <p className="text-[#777777] text-xs font-bold mb-4">
                     Quickly add official SIBAQ presets or create a custom training track.
                   </p>
                   <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="px-4 py-2 bg-[#FF6B4A] text-white rounded-xl text-xs font-black active:translate-y-[2px] transition-all"
+                    onClick={() => {
+                      playClickPop()
+                      setIsAddModalOpen(true)
+                    }}
+                    className="px-5 py-2.5 bg-[#58CC02] border-b-4 border-[#58A700] text-white rounded-xl text-xs font-black uppercase active:border-b-0 active:translate-y-[4px] transition-all"
                   >
                     + Add Program to {activeDivision}
                   </button>
@@ -363,68 +415,78 @@ export default function CampusDashboardClient({
           )}
 
           {/* Minimal SST Footer */}
-          <footer className="mt-16 pt-8 border-t border-slate-200/80 text-center text-xs text-slate-400">
-            SST — SHIA SIBAQ Training App · High Performance AI Assessment Engine
+          <footer className="mt-16 pt-8 border-t-2 border-[#E5E5E5] text-center text-xs font-bold text-[#777777] uppercase tracking-wider">
+            SST — SHIA SIBAQ Training App · High Performance AI Assessment Hub
           </footer>
         </div>
       </main>
 
       {/* ========================================================= */}
-      {/* 3. MOBILE FIXED BOTTOM GLASS DOCK (lg:hidden)             */}
+      {/* 3. MOBILE FIXED BOTTOM DOCK (lg:hidden) — DUOLINGO WHITE  */}
       {/* ========================================================= */}
       <nav
         aria-label="Mobile Dock Navigation"
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#1E2538]/95 backdrop-blur-md text-[#FAF9F6] border-t border-white/10 h-16 px-4 flex items-center justify-around shadow-2xl"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white text-[#4B4B4B] border-t-2 border-[#E5E5E5] h-16 px-4 flex items-center justify-around select-none shadow-lg"
       >
         {/* Item 1: Programs */}
         <button
           onClick={() => setView('programs')}
           className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
-            activeView === 'programs' ? 'text-[#FF6B4A] font-black' : 'text-[#8B95A5] font-bold'
+            activeView === 'programs' ? 'text-[#1CB0F6] font-black' : 'text-[#777777] font-bold'
           }`}
         >
-          <LayoutGrid className="w-5 h-5 stroke-[1.75]" />
-          <span className="text-[10px]">Programs</span>
+          <LayoutGrid className="w-5 h-5 stroke-[2.5]" />
+          <span className="text-[10px] uppercase font-black">Programs</span>
         </button>
 
         {/* Item 2: Stats */}
         <button
           onClick={() => setView('stats')}
           className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
-            activeView === 'stats' ? 'text-[#FF6B4A] font-black' : 'text-[#8B95A5] font-bold'
+            activeView === 'stats' ? 'text-[#1CB0F6] font-black' : 'text-[#777777] font-bold'
           }`}
         >
-          <BarChart3 className="w-5 h-5 stroke-[1.75]" />
-          <span className="text-[10px]">Stats</span>
+          <BarChart3 className="w-5 h-5 stroke-[2.5]" />
+          <span className="text-[10px] uppercase font-black">Stats</span>
         </button>
 
-        {/* Item 3: Center Floating + Add Button */}
+        {/* Item 3: Center 3D Floating + Add Button */}
         <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex flex-col items-center justify-center -mt-6 w-12 h-12 rounded-2xl bg-[#FF6B4A] border-2 border-[#E85635] border-b-4 border-b-[#C94224] text-white shadow-xl active:translate-y-[2px] transition-all"
+          onClick={() => {
+            playClickPop()
+            setIsAddModalOpen(true)
+          }}
+          className="flex flex-col items-center justify-center -mt-6 w-12 h-12 rounded-2xl bg-[#58CC02] border-2 border-[#58A700] border-b-4 text-white shadow-lg active:border-b-0 active:translate-y-[4px] transition-all"
           title="Add Program"
         >
           <Plus className="w-6 h-6 stroke-[3]" />
         </button>
 
-        {/* Item 4: API Telemetry */}
+        {/* Item 4: Sound Toggle on Mobile */}
         <button
-          onClick={() => setView('api')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
-            activeView === 'api' ? 'text-[#FF6B4A] font-black' : 'text-[#8B95A5] font-bold'
-          }`}
+          onClick={handleSoundToggle}
+          className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[#777777] font-bold transition-all"
         >
-          <Activity className="w-5 h-5 stroke-[1.75]" />
-          <span className="text-[10px]">API</span>
+          {soundMuted ? (
+            <VolumeX className="w-5 h-5 text-[#FF4B4B] stroke-[2.5]" />
+          ) : (
+            <Volume2 className="w-5 h-5 text-[#58CC02] stroke-[2.5]" />
+          )}
+          <span className="text-[10px] uppercase font-black">
+            {soundMuted ? 'Muted' : 'Sound'}
+          </span>
         </button>
 
         {/* Item 5: Admin */}
         <button
-          onClick={() => setIsAdminOpen(true)}
-          className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[#8B95A5] hover:text-white font-bold transition-all"
+          onClick={() => {
+            playClickPop()
+            setIsAdminOpen(true)
+          }}
+          className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[#777777] font-bold transition-all"
         >
-          <ShieldCheck className="w-5 h-5 stroke-[1.75] text-[#5F4BB6]" />
-          <span className="text-[10px]">Admin</span>
+          <ShieldCheck className="w-5 h-5 stroke-[2.5] text-[#CE82FF]" />
+          <span className="text-[10px] uppercase font-black">Admin</span>
         </button>
       </nav>
 

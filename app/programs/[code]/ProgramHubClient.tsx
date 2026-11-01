@@ -1,54 +1,51 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { IFlashcard } from '@/models'
+import {
+  BarChart2,
+  BookOpen,
+  Award,
+  Zap,
+  Play,
+  Share2,
+  Check,
+  RefreshCw,
+  Sun,
+  Moon,
+  Cpu,
+  Globe,
+  UserPlus,
+  Flame,
+  X,
+  Shield,
+  TrendingUp,
+  AlertTriangle,
+  AlertOctagon,
+  Bot,
+} from 'lucide-react'
+import { IProgram, IQuiz, IStudyMaterial, IAttempt, ICandidate, IFlashcard } from '@/models'
 import CandidatePill from '@/components/CandidatePill'
 import WeeklyLineChart from '@/components/WeeklyLineChart'
 import TopicProgressBars from '@/components/TopicProgressBars'
 import MissedQuestionsGrid from '@/components/MissedQuestionsGrid'
 import FlipFlashcard from '@/components/FlipFlashcard'
 import ShareQuizModal from '@/components/ShareQuizModal'
-import CoachGenerationOverlay from '@/components/CoachGenerationOverlay'
 import AdminModal from '@/components/AdminModal'
 import AICoachTab from '@/components/AICoachTab'
-import {
-  BarChart2,
-  BookOpen,
-  Award,
-  Loader2,
-  Zap,
-  Cpu,
-  Globe,
-  Share2,
-  Check,
-  RefreshCw,
-  UserPlus,
-  X,
-  Sun,
-  Moon,
-  Shield,
-  Flame,
-  Bot,
-  Play,
-  TrendingUp,
-  AlertTriangle,
-} from 'lucide-react'
+import QuizGenerationModal from '@/components/QuizGenerationModal'
 import { format } from 'date-fns'
-
-type Tab = 'performance' | 'quizzes' | 'study' | 'coach'
+import Link from 'next/link'
+import { playClickPop } from '@/lib/sounds'
 
 interface ProgramHubClientProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  program: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  quizzes: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  materials: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  attempts: any[]
+  program: IProgram
+  quizzes: IQuiz[]
+  materials: IStudyMaterial[]
+  attempts: IAttempt[]
   initialCandidate?: string
 }
+
+type Tab = 'performance' | 'quizzes' | 'study' | 'coach'
 
 export default function ProgramHubClient({
   program,
@@ -57,30 +54,32 @@ export default function ProgramHubClient({
   attempts,
   initialCandidate,
 }: ProgramHubClientProps) {
-  // Candidate data & individual-first selection
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [localCandidates, setLocalCandidates] = useState<any[]>(program.candidates || [])
-  const [selectedCandidate, setSelectedCandidate] = useState<string>(() => {
-    if (initialCandidate && localCandidates.some((c) => c.name.toLowerCase() === initialCandidate.toLowerCase())) {
-      return initialCandidate
-    }
-    return localCandidates[0]?.name || 'Candidate 1'
-  })
-
+  // Navigation
   const [tab, setTab] = useState<Tab>('performance')
-  const [generating, setGenerating] = useState(false)
-  const [isRevengeGen, setIsRevengeGen] = useState(false)
-  const [genEngine, setGenEngine] = useState<'nvidia' | 'orca'>('nvidia')
-  const [genDifficulty, setGenDifficulty] = useState<'easy' | 'medium' | 'hard' | 'extreme'>('medium')
-  const [genQuestionCount, setGenQuestionCount] = useState<number>(10)
-  const [genSessionWindow, setGenSessionWindow] = useState<'Morning' | 'Evening'>(
-    new Date().getHours() < 12 ? 'Morning' : 'Evening'
-  )
-  const [genLiveSearch, setGenLiveSearch] = useState(false)
-  const [genError, setGenError] = useState('')
 
-  // Modals
+  // Roster
+  const [localCandidates, setLocalCandidates] = useState<ICandidate[]>(
+    program.candidates || []
+  )
+  const [selectedCandidate, setSelectedCandidate] = useState<string>(
+    initialCandidate || (program.candidates && program.candidates[0]?.name) || 'Candidate'
+  )
+
+  // Generator Options
+  const [genDifficulty, setGenDifficulty] = useState<'easy' | 'medium' | 'hard' | 'extreme'>('medium')
+  const [genQuestionCount, setGenQuestionCount] = useState<number>(20)
+  const [genSessionWindow, setGenSessionWindow] = useState<'Morning' | 'Evening'>('Morning')
+  const [genEngine, setGenEngine] = useState<'nemotron' | 'deepseek'>('nemotron')
+  const [genLiveSearch, setGenLiveSearch] = useState<boolean>(false)
+
+  // Quiz Generation Modal Pipeline
+  const [isGenModalOpen, setIsGenModalOpen] = useState(false)
+  const [isRevengeLaunch, setIsRevengeLaunch] = useState(false)
+
+  // Syllabus Modal
   const [isSyllabusOpen, setIsSyllabusOpen] = useState(false)
+
+  // Modals & Enrollment
   const [isAddCandidateOpen, setIsAddCandidateOpen] = useState(false)
   const [isAdminOpen, setIsAdminOpen] = useState(false)
   const [newCandidateName, setNewCandidateName] = useState('')
@@ -135,6 +134,7 @@ export default function ProgramHubClient({
   }, [program.code])
 
   const handleCopyQuizLink = (quizId: string) => {
+    playClickPop()
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const shareUrl = `${origin}/quiz/${quizId}`
     if (navigator?.clipboard) {
@@ -147,6 +147,7 @@ export default function ProgramHubClient({
   const handleAddCandidate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newCandidateName.trim()) return
+    playClickPop()
     setAddingCandidate(true)
     setAddCandidateError('')
 
@@ -179,73 +180,32 @@ export default function ProgramHubClient({
     }
   }
 
-  // 1-Tap Revenge Quiz (Mistake Crusher)
-  const handleLaunchRevengeQuiz = async () => {
-    setGenerating(true)
-    setIsRevengeGen(true)
-    setGenError('')
-    try {
-      const res = await fetch('/api/ai/revenge-quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          programCode: program.code,
-          candidateName: selectedCandidate,
-        }),
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Revenge Quiz generation failed')
-
-      if (data.quiz) {
-        setLocalQuizzes((prev) => [data.quiz, ...prev])
-        setSharedQuiz(data.quiz)
-        setIsShareModalOpen(true)
-      }
-    } catch (e) {
-      setGenError((e as Error).message)
-    } finally {
-      setGenerating(false)
-      setIsRevengeGen(false)
-    }
+  // Launch Live Generation Modal
+  const handleOpenStandardGenerator = () => {
+    playClickPop()
+    setIsRevengeLaunch(false)
+    setIsGenModalOpen(true)
   }
 
-  // Standard Quiz Generation
-  const handleGenerate = async () => {
-    setGenerating(true)
-    setGenError('')
-    try {
-      const res = await fetch('/api/ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          programCode: program.code,
-          type: 'quiz',
-          engine: genEngine,
-          difficulty: genDifficulty,
-          questionCount: genQuestionCount,
-          sessionWindow: genSessionWindow,
-          useLiveSearch: genLiveSearch,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Generation failed')
+  const handleOpenRevengeGenerator = () => {
+    playClickPop()
+    setIsRevengeLaunch(true)
+    setIsGenModalOpen(true)
+  }
 
-      if (data.quiz) {
-        setLocalQuizzes((prev) => [data.quiz, ...prev])
-        setTab('quizzes')
-        setSharedQuiz(data.quiz)
-        setIsShareModalOpen(true)
-      }
-    } catch (e) {
-      setGenError(String(e))
-    } finally {
-      setGenerating(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleQuizGenerated = (newQuiz: any) => {
+    if (newQuiz) {
+      setLocalQuizzes((prev) => [newQuiz, ...prev])
+      setTab('quizzes')
+      setSharedQuiz(newQuiz)
+      setIsShareModalOpen(true)
     }
   }
 
   const handleUpload = async () => {
     if (!uploadText.trim()) return
+    playClickPop()
     setUploading(true)
     try {
       const fd = new FormData()
@@ -276,7 +236,6 @@ export default function ProgramHubClient({
       weaknesses: [],
     }
 
-  // Candidate attempts
   const candidateAttempts = localAttempts.filter(
     (a) => a.candidateName?.toLowerCase() === selectedCandidate.toLowerCase()
   )
@@ -286,45 +245,45 @@ export default function ProgramHubClient({
   const getStatusBadge = (acc: number) => {
     if (acc >= 90) {
       return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-[#5F4BB6]/15 text-[#5F4BB6] border border-[#5F4BB6]/30">
-          <Award className="w-3.5 h-3.5" />
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-black bg-[#CE82FF] border-b-2 border-[#A568CC] text-white">
+          <Award className="w-3.5 h-3.5 stroke-[2.5]" />
           EXCELLENT
         </span>
       )
     }
     if (acc >= 75) {
       return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-[#00A896]/15 text-[#00A896] border border-[#00A896]/30">
-          <TrendingUp className="w-3.5 h-3.5" />
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-black bg-[#58CC02] border-b-2 border-[#58A700] text-white">
+          <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
           GOOD
         </span>
       )
     }
     if (acc >= 50) {
       return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-amber-500/15 text-amber-700 border border-amber-500/30">
-          <AlertTriangle className="w-3.5 h-3.5" />
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-black bg-[#FFC800] border-b-2 border-[#E5B400] text-[#4B4B4B]">
+          <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
           WARNING
         </span>
       )
     }
     return (
-      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-rose-500/15 text-rose-600 border border-rose-500/30">
-        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-black bg-[#FF4B4B] border-b-2 border-[#EA2B2B] text-white animate-pulse">
+        <AlertOctagon className="w-3.5 h-3.5 stroke-[2.5]" />
         DANGER
       </span>
     )
   }
 
   const workspaceTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'performance', label: 'Performance', icon: <BarChart2 className="w-4 h-4" /> },
-    { id: 'quizzes', label: 'Quizzes', icon: <Award className="w-4 h-4" /> },
-    { id: 'study', label: 'Study Hub', icon: <BookOpen className="w-4 h-4" /> },
-    { id: 'coach', label: 'AI Coach', icon: <Bot className="w-4 h-4 text-[#5F4BB6]" /> },
+    { id: 'performance', label: 'Performance', icon: <BarChart2 className="w-4 h-4 stroke-[2.5]" /> },
+    { id: 'quizzes', label: 'Quizzes', icon: <Award className="w-4 h-4 stroke-[2.5]" /> },
+    { id: 'study', label: 'Study Hub', icon: <BookOpen className="w-4 h-4 stroke-[2.5]" /> },
+    { id: 'coach', label: 'AI Coach', icon: <Bot className="w-4 h-4 text-[#CE82FF] stroke-[2.5]" /> },
   ]
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 select-none">
       {/* ========================================================= */}
       {/* 1. TOP ROSTER & ACTIONS BAR                               */}
       {/* ========================================================= */}
@@ -342,11 +301,14 @@ export default function ProgramHubClient({
 
           {/* + Add Candidate */}
           <button
-            onClick={() => setIsAddCandidateOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-50 active:translate-y-[1px] transition-all"
+            onClick={() => {
+              playClickPop()
+              setIsAddCandidateOpen(true)
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-[#E5E5E5] border-b-4 rounded-2xl text-xs font-black uppercase text-[#4B4B4B] hover:bg-[#F7F7F7] active:border-b-0 active:translate-y-[4px] transition-all"
             title="Enroll another candidate to this program"
           >
-            <UserPlus className="w-3.5 h-3.5 text-[#FF6B4A]" />
+            <UserPlus className="w-4 h-4 text-[#58CC02] stroke-[2.5]" />
             <span>+ Add Candidate</span>
           </button>
         </div>
@@ -355,32 +317,41 @@ export default function ProgramHubClient({
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {/* Syllabus & Concept Note Modal Trigger */}
           <button
-            onClick={() => setIsSyllabusOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-50 active:translate-y-[1px] transition-all shadow-xs"
+            onClick={() => {
+              playClickPop()
+              setIsSyllabusOpen(true)
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border-2 border-[#E5E5E5] border-b-4 rounded-2xl text-xs font-black uppercase text-[#4B4B4B] hover:bg-[#F7F7F7] active:border-b-0 active:translate-y-[4px] transition-all shadow-xs"
             title="View Official SIBAQ '26 Syllabus & Concept Note"
           >
-            <BookOpen className="w-3.5 h-3.5 text-[#5F4BB6]" />
+            <BookOpen className="w-4 h-4 text-[#1CB0F6] stroke-[2.5]" />
             <span>Syllabus &amp; Concept Note</span>
           </button>
 
           {/* Admin Control */}
           <button
-            onClick={() => setIsAdminOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-200 active:translate-y-[1px] transition-all"
+            onClick={() => {
+              playClickPop()
+              setIsAdminOpen(true)
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border-2 border-[#E5E5E5] border-b-4 rounded-2xl text-xs font-black uppercase text-[#4B4B4B] hover:bg-[#F7F7F7] active:border-b-0 active:translate-y-[4px] transition-all"
             title="Admin Control Center (adminshia / 1234)"
           >
-            <Shield className="w-3.5 h-3.5 text-[#5F4BB6]" />
+            <Shield className="w-4 h-4 text-[#CE82FF] stroke-[2.5]" />
             <span className="hidden sm:inline">Admin</span>
           </button>
 
           {/* Live Sync */}
           <button
-            onClick={handleRefresh}
+            onClick={() => {
+              playClickPop()
+              handleRefresh()
+            }}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-50 active:translate-y-[1px] transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border-2 border-[#E5E5E5] border-b-4 rounded-2xl text-xs font-black uppercase text-[#4B4B4B] hover:bg-[#F7F7F7] active:border-b-0 active:translate-y-[4px] transition-all disabled:opacity-50"
             title="Sync latest submissions"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#00A896] ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-[#58CC02] stroke-[2.5] ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{isRefreshing ? 'Syncing...' : 'Sync'}</span>
           </button>
         </div>
@@ -388,21 +359,24 @@ export default function ProgramHubClient({
 
       {/* Inline Candidate Enrollment Form */}
       {isAddCandidateOpen && (
-        <div className="p-4 bg-white rounded-3xl border-2 border-[#FF6B4A]/40 shadow-sm animate-in fade-in duration-200">
+        <div className="p-5 bg-white rounded-3xl border-2 border-[#58CC02] border-b-[6px] shadow-sm animate-in fade-in duration-200">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-black text-[#1E2538] flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-[#FF6B4A]" /> Enroll Student to {program.code}
+            <h4 className="text-sm font-black text-[#4B4B4B] uppercase tracking-wider flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-[#58CC02] stroke-[2.5]" /> Enroll Student to {program.code}
             </h4>
             <button
-              onClick={() => setIsAddCandidateOpen(false)}
-              className="text-slate-400 hover:text-slate-600 p-1"
+              onClick={() => {
+                playClickPop()
+                setIsAddCandidateOpen(false)
+              }}
+              className="text-[#777777] hover:text-[#4B4B4B] p-1"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 stroke-[2.5]" />
             </button>
           </div>
 
           {addCandidateError && (
-            <p className="text-xs text-rose-600 mb-2 font-bold">{addCandidateError}</p>
+            <p className="text-xs text-[#FF4B4B] mb-2 font-black uppercase">{addCandidateError}</p>
           )}
 
           <form onSubmit={handleAddCandidate} className="flex flex-wrap sm:flex-nowrap gap-2">
@@ -411,19 +385,19 @@ export default function ProgramHubClient({
               value={newCandidateName}
               onChange={(e) => setNewCandidateName(e.target.value)}
               placeholder="Candidate full name (e.g., Ashif KC)"
-              className="flex-1 px-3.5 py-2 text-xs bg-[#FAF9F6] border border-slate-200 rounded-xl focus:outline-none focus:border-[#FF6B4A]"
+              className="flex-1 px-4 py-2.5 text-xs bg-[#F7F7F7] border-2 border-[#E5E5E5] rounded-xl font-bold text-[#4B4B4B] focus:outline-none focus:border-[#58CC02]"
             />
             <input
               type="text"
               value={newCandidateRegNo}
               onChange={(e) => setNewCandidateRegNo(e.target.value)}
               placeholder="Reg No (optional)"
-              className="w-full sm:w-36 px-3.5 py-2 text-xs bg-[#FAF9F6] border border-slate-200 rounded-xl focus:outline-none focus:border-[#FF6B4A]"
+              className="w-full sm:w-36 px-4 py-2.5 text-xs bg-[#F7F7F7] border-2 border-[#E5E5E5] rounded-xl font-bold text-[#4B4B4B] focus:outline-none focus:border-[#58CC02]"
             />
             <button
               type="submit"
               disabled={addingCandidate || !newCandidateName.trim()}
-              className="px-4 py-2 bg-[#FF6B4A] text-white rounded-xl text-xs font-black hover:bg-[#E85635] active:translate-y-[1px] disabled:opacity-50"
+              className="px-5 py-2.5 bg-[#58CC02] border-b-4 border-[#58A700] text-white rounded-xl text-xs font-black uppercase active:border-b-0 active:translate-y-[4px] disabled:opacity-50 transition-all"
             >
               {addingCandidate ? 'Adding...' : 'Save Student'}
             </button>
@@ -434,15 +408,18 @@ export default function ProgramHubClient({
       {/* ========================================================= */}
       {/* 2. 4 CLEAN WORKSPACE TABS                                  */}
       {/* ========================================================= */}
-      <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3">
+      <div className="flex items-center gap-2 border-b-2 border-[#E5E5E5] pb-3">
         {workspaceTabs.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black transition-all ${
+            onClick={() => {
+              playClickPop()
+              setTab(t.id)
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all select-none border-b-4 active:border-b-0 active:translate-y-[4px] ${
               tab === t.id
-                ? 'bg-[#1E2538] text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50 hover:text-slate-900'
+                ? 'bg-[#DDF4FF] text-[#1899D6] border-2 border-[#1CB0F6] border-b-[#1899D6]'
+                : 'bg-white text-[#777777] border-2 border-[#E5E5E5] border-b-[#DCDCDC] hover:bg-[#F7F7F7]'
             }`}
           >
             {t.icon}
@@ -457,28 +434,28 @@ export default function ProgramHubClient({
       {tab === 'performance' && (
         <div className="space-y-6 animate-in fade-in duration-300">
           {/* Candidate Status & 4-Tier Banner */}
-          <div className="bg-white rounded-3xl border-2 border-slate-200/90 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-white rounded-2xl border-2 border-[#E5E5E5] border-b-4 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-md"
-                style={{ backgroundColor: currentCandidate.avatarColor || '#1E2538' }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-xs border border-black/10"
+                style={{ backgroundColor: currentCandidate.avatarColor || '#1CB0F6' }}
               >
                 {currentCandidate.name.slice(0, 2).toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-xl font-black text-[#1E2538]">{currentCandidate.name}</h2>
-                  <span className="text-xs font-mono font-bold text-slate-400">
+                  <h2 className="text-xl font-black text-[#4B4B4B] uppercase tracking-tight">{currentCandidate.name}</h2>
+                  <span className="text-xs font-mono font-bold text-[#777777]">
                     {currentCandidate.regNo}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {getStatusBadge(candidateAccuracy)}
-                  <span className="inline-flex items-center gap-1 font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full text-[11px]">
-                    <Flame className="w-3 h-3 text-[#FF6B4A]" />
+                  <span className="inline-flex items-center gap-1 font-black text-[#FF9600] bg-[#FFF0D6] border border-[#FF9600] px-3 py-1 rounded-xl text-[11px] uppercase">
+                    <Flame className="w-3.5 h-3.5 text-[#FF9600] fill-[#FF9600] stroke-[2]" />
                     {currentCandidate.streakDays || 0} Day Streak
                   </span>
-                  <span className="text-slate-400 font-medium text-[11px]">
+                  <span className="text-[#777777] font-bold text-[11px] uppercase">
                     {candidateAttempts.length} Completed Drill{candidateAttempts.length !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -487,50 +464,38 @@ export default function ProgramHubClient({
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <div className="text-2xl font-black text-[#1E2538]">{candidateAccuracy}%</div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Readiness Accuracy
+                <div className="text-3xl font-black text-[#4B4B4B]">{candidateAccuracy}%</div>
+                <div className="text-[10px] font-black text-[#777777] uppercase tracking-wider">
+                  Readiness Score
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 1-TAP REVENGE QUIZ (MISTAKE CRUSHER) CARD */}
-          <div className="bg-gradient-to-br from-[#FF6B4A] to-[#E85635] text-white rounded-3xl p-6 sm:p-7 shadow-lg border-2 border-[#C94224] relative overflow-hidden">
-            <div className="absolute -right-8 -bottom-8 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-
+          {/* 1-TAP REVENGE QUIZ (MISTAKE CRUSHER) CARD — DUOLINGO FOX ORANGE */}
+          <div className="bg-white rounded-2xl p-6 sm:p-7 border-2 border-[#FF9600] border-b-[6px] shadow-xs relative overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
               <div className="max-w-xl">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 text-white font-black text-[10px] uppercase tracking-widest mb-2.5">
-                  <Flame className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#FFF0D6] border border-[#FF9600] text-[#E58700] font-black text-[10px] uppercase tracking-widest mb-2.5">
+                  <Flame className="w-3.5 h-3.5 text-[#FF9600] fill-[#FF9600] stroke-[2]" />
                   MISTAKE CRUSHER
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black tracking-tight mb-1">
-                  1-Tap Revenge Quiz
+                <h3 className="text-xl sm:text-2xl font-black text-[#4B4B4B] uppercase tracking-tight mb-1">
+                  1-Tap Revenge Drill
                 </h3>
-                <p className="text-xs sm:text-sm text-white/90 leading-relaxed font-medium">
-                  Generates a rapid 10-question remedial drill targeting only the exact questions and weak topics{' '}
-                  <span className="font-bold underline decoration-amber-300">{currentCandidate.name}</span>{' '}
+                <p className="text-xs sm:text-sm text-[#777777] leading-relaxed font-bold">
+                  Synthesizes a 10-question remedial drill targeting only the exact questions and weak topics{' '}
+                  <span className="font-black text-[#FF9600] underline decoration-[#FF9600]">{currentCandidate.name}</span>{' '}
                   missed in recent assessments.
                 </p>
               </div>
 
               <button
-                onClick={handleLaunchRevengeQuiz}
-                disabled={generating}
-                className="shrink-0 flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#1E2538] text-white font-black text-xs sm:text-sm hover:bg-[#161B29] active:translate-y-[2px] transition-all shadow-md disabled:opacity-50"
+                onClick={handleOpenRevengeGenerator}
+                className="shrink-0 flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#FF9600] border-b-4 border-[#E58700] active:border-b-0 active:translate-y-[4px] text-white font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-75 shadow-xs select-none"
               >
-                {generating && isRevengeGen ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-[#FF6B4A]" />
-                    <span>Synthesizing Revenge Drill...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
-                    <span>Launch 10-Q Revenge Drill</span>
-                  </>
-                )}
+                <Zap className="w-4 h-4 text-white stroke-[2.5]" />
+                <span>Launch 10-Q Revenge Drill</span>
               </button>
             </div>
           </div>
@@ -555,157 +520,175 @@ export default function ProgramHubClient({
       {tab === 'quizzes' && (
         <div className="space-y-6 animate-in fade-in duration-300">
           {/* Generation Control Panel */}
-          <div className="bg-white rounded-3xl border-2 border-slate-200/90 p-6 shadow-sm">
+          <div className="bg-white rounded-2xl border-2 border-[#E5E5E5] border-b-4 p-6 shadow-xs">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h3 className="font-black text-base text-[#1E2538]">
+                <h3 className="font-black text-base text-[#4B4B4B] uppercase tracking-wide">
                   AI Assessment Generator
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs font-bold text-[#777777] mt-0.5">
                   Synthesize Olympiad-grade questions for {program.code} candidates.
                 </p>
               </div>
-              <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-bold">
-                {genEngine === 'nvidia' ? 'NVIDIA Nemotron' : 'DeepSeek V3'}
+              <span className="text-[10px] font-mono uppercase px-3 py-1 rounded-xl bg-[#F7F7F7] border border-[#E5E5E5] text-[#4B4B4B] font-black">
+                {genEngine === 'nemotron' ? 'NVIDIA Nemotron 70B' : 'DeepSeek V4 Flash'}
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               {/* Difficulty */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-black text-[#777777] uppercase tracking-wider mb-1.5">
                   Difficulty Tier
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {(['easy', 'medium', 'hard', 'extreme'] as const).map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setGenDifficulty(d)}
-                      className={`py-2 px-2.5 rounded-xl text-xs font-black capitalize transition-all ${
-                        genDifficulty === d
-                          ? d === 'extreme'
-                            ? 'bg-rose-600 text-white shadow-sm'
-                            : 'bg-[#1E2538] text-white shadow-sm'
-                          : 'bg-[#FAF9F6] border border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      {d}
-                    </button>
-                  ))}
+                  {(['easy', 'medium', 'hard', 'extreme'] as const).map((d) => {
+                    const isSel = genDifficulty === d
+                    let activeClass = 'bg-[#1CB0F6] border-[#1899D6] text-white'
+                    if (d === 'easy') activeClass = 'bg-[#58CC02] border-[#58A700] text-white'
+                    if (d === 'hard') activeClass = 'bg-[#FF9600] border-[#E58700] text-white'
+                    if (d === 'extreme') activeClass = 'bg-[#FF4B4B] border-[#EA2B2B] text-white'
+
+                    return (
+                      <button
+                        key={d}
+                        onClick={() => {
+                          playClickPop()
+                          setGenDifficulty(d)
+                        }}
+                        className={`py-2 px-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-75 border-b-4 active:border-b-0 active:translate-y-[4px] ${
+                          isSel
+                            ? activeClass
+                            : 'bg-white border-2 border-[#E5E5E5] border-b-[#DCDCDC] text-[#777777] hover:bg-[#F7F7F7]'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
               {/* Question Count */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-black text-[#777777] uppercase tracking-wider mb-1.5">
                   Question Count
                 </label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {[10, 25, 50].map((count) => (
-                    <button
-                      key={count}
-                      onClick={() => setGenQuestionCount(count)}
-                      className={`py-2 px-2 rounded-xl text-xs font-black transition-all ${
-                        genQuestionCount === count
-                          ? 'bg-[#1E2538] text-white shadow-sm'
-                          : 'bg-[#FAF9F6] border border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      {count}Q
-                    </button>
-                  ))}
+                  {[10, 25, 50].map((count) => {
+                    const isSel = genQuestionCount === count
+                    return (
+                      <button
+                        key={count}
+                        onClick={() => {
+                          playClickPop()
+                          setGenQuestionCount(count)
+                        }}
+                        className={`py-2 px-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-75 border-b-4 active:border-b-0 active:translate-y-[4px] ${
+                          isSel
+                            ? 'bg-[#1CB0F6] border-[#1899D6] text-white'
+                            : 'bg-white border-2 border-[#E5E5E5] border-b-[#DCDCDC] text-[#777777] hover:bg-[#F7F7F7]'
+                        }`}
+                      >
+                        {count}Q
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
               {/* Session Window */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-black text-[#777777] uppercase tracking-wider mb-1.5">
                   Session
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {(['Morning', 'Evening'] as const).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setGenSessionWindow(s)}
-                      className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-black transition-all ${
-                        genSessionWindow === s
-                          ? 'bg-[#1E2538] text-white shadow-sm'
-                          : 'bg-[#FAF9F6] border border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      {s === 'Morning' ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-indigo-400" />}
-                      <span>{s}</span>
-                    </button>
-                  ))}
+                  {(['Morning', 'Evening'] as const).map((s) => {
+                    const isSel = genSessionWindow === s
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          playClickPop()
+                          setGenSessionWindow(s)
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-75 border-b-4 active:border-b-0 active:translate-y-[4px] ${
+                          isSel
+                            ? 'bg-[#1CB0F6] border-[#1899D6] text-white'
+                            : 'bg-white border-2 border-[#E5E5E5] border-b-[#DCDCDC] text-[#777777] hover:bg-[#F7F7F7]'
+                        }`}
+                      >
+                        {s === 'Morning' ? (
+                          <Sun className="w-3.5 h-3.5 text-[#FFC800] stroke-[2.5]" />
+                        ) : (
+                          <Moon className="w-3.5 h-3.5 text-[#CE82FF] stroke-[2.5]" />
+                        )}
+                        <span>{s}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* AI Engine */}
+              {/* AI Engine & Grounding */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-black text-[#777777] uppercase tracking-wider mb-1.5">
                   Engine &amp; Web Grounding
                 </label>
                 <div className="flex gap-1.5">
                   <button
-                    onClick={() => setGenEngine(genEngine === 'nvidia' ? 'orca' : 'nvidia')}
-                    className="flex-1 py-2 px-2.5 rounded-xl text-xs font-black bg-[#FAF9F6] border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all flex items-center justify-center gap-1"
+                    onClick={() => {
+                      playClickPop()
+                      setGenEngine(genEngine === 'nemotron' ? 'deepseek' : 'nemotron')
+                    }}
+                    className="flex-1 py-2 px-2.5 rounded-xl text-xs font-black uppercase bg-white border-2 border-[#E5E5E5] border-b-4 border-b-[#DCDCDC] text-[#4B4B4B] hover:bg-[#F7F7F7] active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-1"
                   >
-                    <Cpu className="w-3.5 h-3.5 text-[#5F4BB6]" />
-                    <span>{genEngine === 'nvidia' ? 'NVIDIA' : 'Orca'}</span>
+                    <Cpu className="w-3.5 h-3.5 text-[#CE82FF] stroke-[2.5]" />
+                    <span>{genEngine === 'nemotron' ? 'Nemotron' : 'DeepSeek'}</span>
                   </button>
                   <button
-                    onClick={() => setGenLiveSearch(!genLiveSearch)}
-                    className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1 ${
+                    onClick={() => {
+                      playClickPop()
+                      setGenLiveSearch(!genLiveSearch)
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase transition-all duration-75 border-b-4 active:border-b-0 active:translate-y-[4px] flex items-center justify-center gap-1 ${
                       genLiveSearch
-                        ? 'bg-[#00A896] text-white shadow-sm'
-                        : 'bg-[#FAF9F6] border border-slate-200 text-slate-500 hover:bg-slate-100'
+                        ? 'bg-[#58CC02] border-[#58A700] text-white'
+                        : 'bg-white border-2 border-[#E5E5E5] border-b-[#DCDCDC] text-[#777777] hover:bg-[#F7F7F7]'
                     }`}
                     title="Toggle Live Web Grounding via Firecrawl"
                   >
-                    <Globe className="w-3.5 h-3.5" />
+                    <Globe className="w-3.5 h-3.5 stroke-[2.5]" />
                     <span>Search</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {genError && (
-              <p className="text-xs text-rose-600 mb-3 font-bold">{genError}</p>
-            )}
-
+            {/* Launch Modal Button */}
             <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="w-full py-3 rounded-2xl bg-[#FF6B4A] hover:bg-[#E85635] text-white font-black text-xs sm:text-sm active:translate-y-[2px] transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+              onClick={handleOpenStandardGenerator}
+              className="w-full py-3.5 rounded-2xl bg-[#58CC02] border-2 border-[#58A700] border-b-4 text-white font-black text-xs sm:text-sm uppercase tracking-wider hover:bg-[#58A700] active:border-b-0 active:translate-y-[4px] transition-all duration-75 flex items-center justify-center gap-2 shadow-xs select-none"
             >
-              {generating && !isRevengeGen ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Synthesizing {genQuestionCount} Questions...</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  <span>Generate {genQuestionCount}Q {genDifficulty.toUpperCase()} Quiz</span>
-                </>
-              )}
+              <Zap className="w-4 h-4 text-white stroke-[2.5]" />
+              <span>Launch Live Generation Pipeline ({genQuestionCount}Q {genDifficulty.toUpperCase()})</span>
             </button>
           </div>
 
           {/* Active Quizzes List */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-sm text-[#1E2538]">
+              <h3 className="font-black text-sm text-[#4B4B4B] uppercase tracking-wider">
                 Active Quizzes &amp; Drills ({localQuizzes.length})
               </h3>
-              <span className="text-xs text-slate-400 font-medium">
-                Tap to launch or copy sharable student link
+              <span className="text-xs text-[#777777] font-bold uppercase">
+                Tap to launch or copy sharable link
               </span>
             </div>
 
             {localQuizzes.length === 0 ? (
-              <div className="p-8 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400 text-xs">
-                No quizzes generated yet. Click &ldquo;Generate Quiz&rdquo; above.
+              <div className="p-8 text-center bg-white rounded-2xl border-2 border-dashed border-[#E5E5E5] text-[#777777] text-xs font-bold uppercase">
+                No quizzes generated yet. Click &ldquo;Launch Live Generation Pipeline&rdquo; above.
               </div>
             ) : (
               localQuizzes.map((quiz) => {
@@ -716,25 +699,25 @@ export default function ProgramHubClient({
                 return (
                   <div
                     key={quizId}
-                    className="p-5 bg-white rounded-3xl border-2 border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="p-5 bg-white rounded-2xl border-2 border-[#E5E5E5] border-b-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
                     <div>
                       <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                        <span className="font-mono text-xs font-black text-[#1E2538]">
+                        <span className="text-xs font-black text-[#1CB0F6] uppercase">
                           {quiz.programCode}
                         </span>
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
+                        <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-[#F7F7F7] border border-[#E5E5E5] text-[#4B4B4B]">
                           {quiz.difficulty || 'medium'}
                         </span>
-                        <span className="text-xs text-slate-400 font-medium">
+                        <span className="text-xs text-[#777777] font-bold">
                           {quiz.questions?.length || quiz.questionCount || 10} Questions · {quiz.sessionWindow || 'Morning'}
                         </span>
                       </div>
-                      <h4 className="font-black text-base text-[#1E2538]">{quiz.title}</h4>
-                      <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 font-medium">
+                      <h4 className="font-black text-base text-[#4B4B4B] uppercase tracking-tight">{quiz.title}</h4>
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-[#777777] font-bold">
                         <span>Created {format(new Date(quiz.createdAt || Date.now()), 'dd MMM, hh:mm a')}</span>
                         {quizAttempts.length > 0 && (
-                          <span className="text-[#00A896] font-bold">
+                          <span className="text-[#58CC02] font-black">
                             · {quizAttempts.length} attempt{quizAttempts.length !== 1 ? 's' : ''} logged
                           </span>
                         )}
@@ -744,17 +727,18 @@ export default function ProgramHubClient({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleCopyQuizLink(quizId)}
-                        className="px-3.5 py-2.5 rounded-2xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 active:translate-y-[1px] transition-all flex items-center gap-1.5"
+                        className="px-3.5 py-2.5 rounded-xl bg-white border-2 border-[#E5E5E5] border-b-4 text-[#4B4B4B] font-black text-xs uppercase tracking-wider hover:bg-[#F7F7F7] active:border-b-0 active:translate-y-[4px] transition-all flex items-center gap-1.5 select-none"
                       >
-                        {isCopied ? <Check className="w-3.5 h-3.5 text-[#00A896]" /> : <Share2 className="w-3.5 h-3.5" />}
+                        {isCopied ? <Check className="w-4 h-4 text-[#58CC02] stroke-[2.5]" /> : <Share2 className="w-4 h-4 text-[#777777] stroke-[2.5]" />}
                         <span>{isCopied ? 'Link Copied!' : 'Share Link'}</span>
                       </button>
 
                       <Link
                         href={`/programs/${program.code}/quiz/${quizId}?candidate=${encodeURIComponent(selectedCandidate)}`}
+                        onClick={() => playClickPop()}
                       >
-                        <button className="px-4 py-2.5 rounded-2xl bg-[#FF6B4A] hover:bg-[#E85635] text-white font-black text-xs active:translate-y-[1px] transition-all flex items-center gap-1.5 shadow-sm">
-                          <Play className="w-3.5 h-3.5 fill-current" />
+                        <button className="px-4 py-2.5 rounded-xl bg-[#58CC02] border-b-4 border-[#58A700] hover:bg-[#58A700] text-white font-black text-xs uppercase tracking-wider active:border-b-0 active:translate-y-[4px] transition-all flex items-center gap-1.5 shadow-xs select-none">
+                          <Play className="w-3.5 h-3.5 fill-current stroke-[2.5]" />
                           <span>Start Quiz</span>
                         </button>
                       </Link>
@@ -774,9 +758,9 @@ export default function ProgramHubClient({
         <div className="space-y-6 animate-in fade-in duration-300">
           {/* Flashcards Deck */}
           {flashcardDeck.length > 0 ? (
-            <div className="bg-white rounded-3xl border-2 border-slate-200/90 p-6 shadow-sm">
+            <div className="bg-white rounded-2xl border-2 border-[#E5E5E5] border-b-4 p-6 shadow-xs">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-black text-base text-[#1E2538]">
+                <h3 className="font-black text-base text-[#4B4B4B] uppercase tracking-wide">
                   Revision Flashcards ({flashcardIdx + 1} / {flashcardDeck.length})
                 </h3>
               </div>
@@ -786,15 +770,21 @@ export default function ProgramHubClient({
               <div className="flex justify-center gap-3">
                 <button
                   disabled={flashcardIdx === 0}
-                  onClick={() => setFlashcardIdx((i) => i - 1)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold disabled:opacity-40"
+                  onClick={() => {
+                    playClickPop()
+                    setFlashcardIdx((i) => i - 1)
+                  }}
+                  className="px-4 py-2 rounded-xl bg-white border-2 border-[#E5E5E5] border-b-4 text-[#4B4B4B] text-xs font-black uppercase active:border-b-0 active:translate-y-[4px] disabled:opacity-40"
                 >
                   Previous
                 </button>
                 <button
                   disabled={flashcardIdx >= flashcardDeck.length - 1}
-                  onClick={() => setFlashcardIdx((i) => i + 1)}
-                  className="px-4 py-2 rounded-xl bg-[#1E2538] text-white text-xs font-bold disabled:opacity-40"
+                  onClick={() => {
+                    playClickPop()
+                    setFlashcardIdx((i) => i + 1)
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#1CB0F6] border-b-4 border-[#1899D6] text-white text-xs font-black uppercase active:border-b-0 active:translate-y-[4px] disabled:opacity-40"
                 >
                   Next Card
                 </button>
@@ -803,9 +793,9 @@ export default function ProgramHubClient({
           ) : null}
 
           {/* Upload Notes */}
-          <div className="bg-white rounded-3xl border-2 border-slate-200/90 p-6 shadow-sm">
-            <h3 className="font-black text-base text-[#1E2538] mb-1">Upload Study Material</h3>
-            <p className="text-xs text-slate-500 mb-4">
+          <div className="bg-white rounded-2xl border-2 border-[#E5E5E5] border-b-4 p-6 shadow-xs">
+            <h3 className="font-black text-base text-[#4B4B4B] uppercase tracking-wide mb-1">Upload Study Material</h3>
+            <p className="text-xs font-bold text-[#777777] mb-4">
               Paste reference text or syllabus extracts. The AI will extract flashcards and high-yield cues.
             </p>
             <textarea
@@ -813,18 +803,18 @@ export default function ProgramHubClient({
               value={uploadText}
               onChange={(e) => setUploadText(e.target.value)}
               placeholder="Paste notes, rulings, articles, or case laws..."
-              className="w-full p-4 rounded-2xl bg-[#FAF9F6] border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#00A896] mb-3"
+              className="w-full p-4 rounded-xl bg-[#F7F7F7] border-2 border-[#E5E5E5] text-xs font-bold text-[#4B4B4B] focus:outline-none focus:border-[#58CC02] mb-3"
             />
             <div className="flex items-center gap-3">
               <button
                 onClick={handleUpload}
                 disabled={uploading || !uploadText.trim()}
-                className="px-5 py-2.5 rounded-2xl bg-[#00A896] text-white font-black text-xs hover:bg-[#008E7E] disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-[#58CC02] border-b-4 border-[#58A700] text-white font-black text-xs uppercase active:border-b-0 active:translate-y-[4px] disabled:opacity-50 transition-all"
               >
                 {uploading ? 'Processing Notes...' : 'Upload Notes'}
               </button>
               {localMaterials.length > 0 && (
-                <span className="text-xs text-slate-400 font-medium">
+                <span className="text-xs text-[#777777] font-bold">
                   {localMaterials.length} materials in library
                 </span>
               )}
@@ -851,67 +841,73 @@ export default function ProgramHubClient({
       {/* 1. Official Syllabus & Concept Note Modal */}
       {isSyllabusOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-md animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#4B4B4B]/60 backdrop-blur-xs animate-in fade-in select-none"
           role="dialog"
           aria-modal="true"
         >
-          <div className="relative w-full max-w-2xl bg-white rounded-3xl border-2 border-slate-300 border-b-8 border-b-slate-400 p-6 sm:p-8 shadow-2xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl border-2 border-[#E5E5E5] border-b-[6px] p-6 sm:p-8 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-4 border-b-2 border-[#E5E5E5]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#1E2538] text-white flex items-center justify-center shadow-md">
-                  <BookOpen className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-[#1CB0F6] text-white flex items-center justify-center shadow-xs">
+                  <BookOpen className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="font-black text-lg text-[#1E2538] leading-none">
+                  <h3 className="font-black text-lg text-[#4B4B4B] uppercase leading-none">
                     {program.title} ({program.code})
                   </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-1">
+                  <p className="text-xs text-[#777777] font-bold uppercase mt-1">
                     Official SIBAQ &apos;26 Syllabus &amp; Concept Note
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setIsSyllabusOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                onClick={() => {
+                  playClickPop()
+                  setIsSyllabusOpen(false)
+                }}
+                className="p-2 rounded-xl text-[#777777] hover:text-[#4B4B4B] hover:bg-[#F7F7F7]"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 stroke-[2.5]" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-5 space-y-4 text-xs leading-relaxed text-slate-700">
+            <div className="flex-1 overflow-y-auto py-5 space-y-4 text-xs leading-relaxed text-[#4B4B4B]">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Division</span>
-                  <div className="font-black text-slate-800 text-sm mt-0.5">{program.division || 'Aliyah'}</div>
+                <div className="p-3 rounded-2xl bg-[#F7F7F7] border border-[#E5E5E5]">
+                  <span className="text-[10px] font-black text-[#777777] uppercase">Division</span>
+                  <div className="font-black text-[#4B4B4B] text-sm mt-0.5 uppercase">{program.division || 'Aliyah'}</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Category</span>
-                  <div className="font-black text-slate-800 text-sm mt-0.5">{program.category}</div>
+                <div className="p-3 rounded-2xl bg-[#F7F7F7] border border-[#E5E5E5]">
+                  <span className="text-[10px] font-black text-[#777777] uppercase">Category</span>
+                  <div className="font-black text-[#4B4B4B] text-sm mt-0.5 uppercase">{program.category}</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Duration</span>
-                  <div className="font-black text-slate-800 text-sm mt-0.5">{program.durationMinutes} min</div>
+                <div className="p-3 rounded-2xl bg-[#F7F7F7] border border-[#E5E5E5]">
+                  <span className="text-[10px] font-black text-[#777777] uppercase">Duration</span>
+                  <div className="font-black text-[#4B4B4B] text-sm mt-0.5 uppercase">{program.durationMinutes} min</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Core Skill</span>
-                  <div className="font-black text-slate-800 text-sm mt-0.5">{program.skill}</div>
+                <div className="p-3 rounded-2xl bg-[#F7F7F7] border border-[#E5E5E5]">
+                  <span className="text-[10px] font-black text-[#777777] uppercase">Core Skill</span>
+                  <div className="font-black text-[#4B4B4B] text-sm mt-0.5 uppercase">{program.skill}</div>
                 </div>
               </div>
 
               <div>
-                <h4 className="font-black text-sm text-[#1E2538] mb-2 uppercase tracking-wider text-[11px]">
+                <h4 className="font-black text-sm text-[#4B4B4B] mb-2 uppercase tracking-wider text-[11px]">
                   Concept Note &amp; Guidelines
                 </h4>
-                <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-slate-200 text-slate-800 font-medium whitespace-pre-wrap">
+                <div className="p-4 rounded-2xl bg-[#F7F7F7] border border-[#E5E5E5] text-[#4B4B4B] font-bold whitespace-pre-wrap leading-relaxed">
                   {program.conceptNote}
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 text-right">
+            <div className="pt-4 border-t-2 border-[#E5E5E5] text-right">
               <button
-                onClick={() => setIsSyllabusOpen(false)}
-                className="px-5 py-2.5 rounded-2xl bg-[#1E2538] text-white font-black text-xs hover:bg-[#2A334C]"
+                onClick={() => {
+                  playClickPop()
+                  setIsSyllabusOpen(false)
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#58CC02] border-b-4 border-[#58A700] text-white font-black text-xs uppercase active:border-b-0 active:translate-y-[4px]"
               >
                 Close Syllabus
               </button>
@@ -920,13 +916,19 @@ export default function ProgramHubClient({
         </div>
       )}
 
-      {/* 2. Coach Generation Overlay */}
-      <CoachGenerationOverlay
-        isOpen={generating}
-        programCode={program.code}
-        difficulty={isRevengeGen ? 'hard' : genDifficulty}
-        questionCount={isRevengeGen ? 10 : genQuestionCount}
+      {/* 2. Live Step-by-Step Documented Quiz Generation Pipeline Modal */}
+      <QuizGenerationModal
+        isOpen={isGenModalOpen}
+        onClose={() => setIsGenModalOpen(false)}
+        program={program}
+        candidateName={selectedCandidate}
+        difficulty={isRevengeLaunch ? 'hard' : genDifficulty}
+        questionCount={isRevengeLaunch ? 10 : genQuestionCount}
         engine={genEngine}
+        sessionWindow={genSessionWindow}
+        useLiveSearch={genLiveSearch}
+        isRevenge={isRevengeLaunch}
+        onQuizGenerated={handleQuizGenerated}
       />
 
       {/* 3. Share Quiz Modal */}

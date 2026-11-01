@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #FAF9F6;
-  --foreground: #1E2538;
+  --background: #F7F7F7;
+  --foreground: #4B4B4B;
 }
 
 body {
@@ -17,6 +17,11 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* 3D Tactile Buttons */
+  .btn-3d {
+    @apply border-b-4 active:border-b-0 active:translate-y-[4px] transition-all duration-75 select-none font-extrabold uppercase tracking-wider;
   }
 
   /* Hide scrollbar for Chrome, Safari and Opera */
