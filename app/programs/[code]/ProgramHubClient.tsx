@@ -22,6 +22,10 @@ import {
   AlertTriangle,
   AlertOctagon,
   Bot,
+  FileText,
+  UploadCloud,
+  Languages,
+  CheckCircle2,
 } from 'lucide-react'
 import { IProgram, IQuiz, IStudyMaterial, IAttempt, ICandidate, IFlashcard } from '@/models'
 import CandidatePill from '@/components/CandidatePill'
@@ -47,6 +51,17 @@ interface ProgramHubClientProps {
 
 type Tab = 'performance' | 'quizzes' | 'study' | 'coach'
 
+function getAutoLanguage(code: string): 'english' | 'arabic' | 'urdu' | 'malayalam' {
+  const c = (code || '').toUpperCase().trim()
+  const arabicCodes = ['AX37', 'AN22', 'AN23', 'AS4', 'AS6', 'AS5', 'AS7', 'AX36']
+  const urduCodes = ['AX38', 'AS9', 'AN25', 'AN26']
+  const malayalamCodes = ['AS8', 'AN24', 'AN29', 'AN34', 'AX35']
+  if (arabicCodes.some((x) => c.includes(x))) return 'arabic'
+  if (urduCodes.some((x) => c.includes(x))) return 'urdu'
+  if (malayalamCodes.some((x) => c.includes(x))) return 'malayalam'
+  return 'english'
+}
+
 export default function ProgramHubClient({
   program,
   quizzes,
@@ -71,6 +86,24 @@ export default function ProgramHubClient({
   const [genSessionWindow, setGenSessionWindow] = useState<'Morning' | 'Evening'>('Morning')
   const [genEngine, setGenEngine] = useState<'nemotron' | 'deepseek'>('nemotron')
   const [genLiveSearch, setGenLiveSearch] = useState<boolean>(false)
+
+  // Multi-Language, Multi-Format & Strict Custom Source States
+  const [genLanguage, setGenLanguage] = useState<'english' | 'arabic' | 'urdu' | 'malayalam'>(() =>
+    getAutoLanguage(program.code)
+  )
+  const [genFormats, setGenFormats] = useState<
+    ('mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')[]
+  >(['mcq'])
+  const [genSourceMode, setGenSourceMode] = useState<
+    'syllabus_and_benchmarks' | 'strict_custom_source'
+  >('syllabus_and_benchmarks')
+  const [customSourceText, setCustomSourceText] = useState('')
+  const [customFileName, setCustomFileName] = useState('')
+  const [customWordCount, setCustomWordCount] = useState(0)
+  const [saveToMaterials, setSaveToMaterials] = useState(true)
+  const [customMaterialTitle, setCustomMaterialTitle] = useState('')
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false)
+  const [pdfUploadError, setPdfUploadError] = useState('')
 
   // Quiz Generation Modal Pipeline
   const [isGenModalOpen, setIsGenModalOpen] = useState(false)
@@ -177,6 +210,57 @@ export default function ProgramHubClient({
       setAddCandidateError((err as Error).message)
     } finally {
       setAddingCandidate(false)
+    }
+  }
+
+  // Format toggles
+  const toggleFormat = (fmt: 'mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason') => {
+    playClickPop()
+    setGenFormats((prev) => {
+      if (prev.includes(fmt)) {
+        if (prev.length === 1) return prev
+        return prev.filter((f) => f !== fmt)
+      }
+      return [...prev, fmt]
+    })
+  }
+
+  const selectAllFormats = () => {
+    playClickPop()
+    setGenFormats(['mcq', 'fill_blank', 'statement_verify', 'assertion_reason'])
+  }
+
+  // Upload custom document directly in generator
+  const handleSourceFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    playClickPop()
+    setIsUploadingPdf(true)
+    setPdfUploadError('')
+    try {
+      const fd = new FormData()
+      fd.append('programCode', program.code)
+      fd.append('file', file)
+      fd.append('title', file.name.replace(/\.[^/.]+$/, ''))
+      fd.append('uploadedBy', selectedCandidate || 'Coordinator')
+
+      const res = await fetch('/api/materials/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to parse file')
+
+      const extracted = data.extractedText || ''
+      setCustomSourceText(extracted)
+      setCustomFileName(file.name)
+      setCustomWordCount(data.wordCount || extracted.split(/\s+/).filter(Boolean).length)
+      setCustomMaterialTitle(file.name.replace(/\.[^/.]+$/, ''))
+      if (data.material) {
+        setLocalMaterials((prev) => [data.material, ...prev])
+      }
+    } catch (err) {
+      setPdfUploadError((err as Error).message || 'Failed to upload document')
+    } finally {
+      setIsUploadingPdf(false)
+      e.target.value = ''
     }
   }
 
@@ -665,13 +749,265 @@ export default function ProgramHubClient({
               </div>
             </div>
 
+            {/* Section A: Quiz Language & Native Script */}
+            <div className="mb-5 pt-4 border-t-2 border-[#E5E5E5]">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-black text-[#777777] uppercase tracking-wider flex items-center gap-1.5">
+                  <Languages className="w-3.5 h-3.5 text-[#1CB0F6] stroke-[2.5]" />
+                  <span>Quiz Language &amp; Native Script</span>
+                </label>
+                <span className="text-[10px] font-bold text-[#777777] uppercase">
+                  Auto-tailored for {program.code}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'english', label: 'English', sub: 'EN · Standard' },
+                  { id: 'arabic', label: 'العربية', sub: 'AR · Classical' },
+                  { id: 'urdu', label: 'اردو', sub: 'UR · Academic' },
+                  { id: 'malayalam', label: 'മലയാളം', sub: 'ML · Standard' },
+                ].map((l) => {
+                  const isSel = genLanguage === l.id
+                  const isAuto = getAutoLanguage(program.code) === l.id
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => {
+                        playClickPop()
+                        setGenLanguage(l.id as 'english' | 'arabic' | 'urdu' | 'malayalam')
+                      }}
+                      className={`py-2.5 px-3 rounded-2xl text-left transition-all duration-75 border-b-4 active:border-b-0 active:translate-y-[4px] relative select-none ${
+                        isSel
+                          ? 'bg-[#1CB0F6] border-2 border-[#1899D6] border-b-[#1479A7] text-white shadow-xs'
+                          : 'bg-white border-2 border-[#E5E5E5] border-b-[#DCDCDC] text-[#4B4B4B] hover:bg-[#F7F7F7]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-tight">{l.label}</span>
+                        {isAuto && (
+                          <span
+                            className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider ${
+                              isSel ? 'bg-white/25 text-white' : 'bg-[#D7FFB8] text-[#58A700]'
+                            }`}
+                          >
+                            Auto
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-bold block mt-0.5 ${isSel ? 'text-white/80' : 'text-[#777777]'}`}>
+                        {l.sub}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Section B: Question Formats */}
+            <div className="mb-5 pt-4 border-t-2 border-[#E5E5E5]">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-black text-[#777777] uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-[#CE82FF] stroke-[2.5]" />
+                  <span>Question Formats &amp; Drill Styles</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={selectAllFormats}
+                  className="text-[10px] font-black text-[#1CB0F6] uppercase hover:underline"
+                >
+                  Select All (Mixed Mode)
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'mcq', label: 'Standard MCQ', desc: '4 Options, 1 Correct' },
+                  { id: 'fill_blank', label: 'Fill in Blank', desc: 'Missing word in stem' },
+                  { id: 'statement_verify', label: 'Statement Check', desc: 'Multi-statement logic' },
+                  { id: 'assertion_reason', label: 'Assertion & Reason', desc: 'UPSC/Olympiad pairs' },
+                ].map((f) => {
+                  const isSel = genFormats.includes(f.id as 'mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => toggleFormat(f.id as 'mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')}
+                      className={`py-2.5 px-3 rounded-2xl text-left transition-all duration-75 border-b-4 active:border-b-0 active:translate-y-[4px] select-none ${
+                        isSel
+                          ? 'bg-[#58CC02] border-2 border-[#58A700] border-b-[#468500] text-white shadow-xs'
+                          : 'bg-white border-2 border-[#E5E5E5] border-b-[#DCDCDC] text-[#777777] hover:bg-[#F7F7F7]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-tight">{f.label}</span>
+                        {isSel && <Check className="w-3.5 h-3.5 stroke-[3] text-white shrink-0" />}
+                      </div>
+                      <span className={`text-[10px] font-bold block mt-0.5 truncate ${isSel ? 'text-white/85' : 'text-[#777777]'}`}>
+                        {f.desc}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Section C: Knowledge Source Mode */}
+            <div className="mb-5 pt-4 border-t-2 border-[#E5E5E5]">
+              <label className="block text-[11px] font-black text-[#777777] uppercase tracking-wider mb-2">
+                Knowledge Grounding Source
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickPop()
+                    setGenSourceMode('syllabus_and_benchmarks')
+                  }}
+                  className={`p-3 rounded-2xl text-left border-2 border-b-4 transition-all duration-75 active:border-b-0 active:translate-y-[4px] select-none ${
+                    genSourceMode === 'syllabus_and_benchmarks'
+                      ? 'bg-[#DDF4FF] border-[#1CB0F6] border-b-[#1899D6] text-[#1899D6]'
+                      : 'bg-white border-[#E5E5E5] border-b-[#DCDCDC] text-[#777777] hover:bg-[#F7F7F7]'
+                  }`}
+                >
+                  <div className="text-xs font-black uppercase">Official Syllabus + Global Benchmarks</div>
+                  <p className="text-[11px] font-bold mt-0.5 opacity-80">
+                    SIBAQ &apos;26 Concept Note, UPSC/IELTS benchmark drills, and real-time domain grounding.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickPop()
+                    setGenSourceMode('strict_custom_source')
+                  }}
+                  className={`p-3 rounded-2xl text-left border-2 border-b-4 transition-all duration-75 active:border-b-0 active:translate-y-[4px] select-none ${
+                    genSourceMode === 'strict_custom_source'
+                      ? 'bg-[#FFF5D6] border-[#FFC800] border-b-[#E5B400] text-[#7A5B00]'
+                      : 'bg-white border-[#E5E5E5] border-b-[#DCDCDC] text-[#777777] hover:bg-[#F7F7F7]'
+                  }`}
+                >
+                  <div className="text-xs font-black uppercase flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-[#FF9600] stroke-[2.5]" />
+                    <span>Strict Custom Material Only</span>
+                  </div>
+                  <p className="text-[11px] font-bold mt-0.5 opacity-80">
+                    100% extracted solely from your uploaded PDF, text document, or pasted notes. Zero external hallucinations.
+                  </p>
+                </button>
+              </div>
+
+              {/* Strict Custom Source Input Panel */}
+              {genSourceMode === 'strict_custom_source' && (
+                <div className="p-4 bg-[#F7F7F7] border-2 border-[#E5E5E5] rounded-2xl space-y-3 animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="text-xs font-black text-[#4B4B4B] uppercase tracking-wide flex items-center gap-1.5">
+                      <UploadCloud className="w-4 h-4 text-[#1CB0F6] stroke-[2.5]" />
+                      <span>Upload PDF / Text Document</span>
+                    </div>
+                    <label className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border-2 border-[#E5E5E5] border-b-4 rounded-xl text-xs font-black uppercase text-[#4B4B4B] hover:bg-[#F0F0F0] active:border-b-0 active:translate-y-[4px] cursor-pointer transition-all">
+                      <UploadCloud className="w-3.5 h-3.5 text-[#58CC02] stroke-[2.5]" />
+                      <span>{isUploadingPdf ? 'Parsing File...' : 'Choose PDF / TXT'}</span>
+                      <input
+                        type="file"
+                        accept=".pdf,.txt,.docx,.md"
+                        onChange={handleSourceFileUpload}
+                        disabled={isUploadingPdf}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {pdfUploadError && (
+                    <p className="text-xs text-[#FF4B4B] font-black uppercase">{pdfUploadError}</p>
+                  )}
+
+                  {customFileName && (
+                    <div className="flex items-center justify-between px-3 py-2 bg-white rounded-xl border border-[#58CC02] text-xs font-bold text-[#4B4B4B]">
+                      <div className="flex items-center gap-2 truncate">
+                        <CheckCircle2 className="w-4 h-4 text-[#58CC02] stroke-[2.5] shrink-0" />
+                        <span className="truncate">{customFileName}</span>
+                        <span className="text-[#58CC02] font-black shrink-0">
+                          ({customWordCount} words parsed)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playClickPop()
+                          setCustomSourceText('')
+                          setCustomFileName('')
+                          setCustomWordCount(0)
+                        }}
+                        className="text-[#777777] hover:text-[#FF4B4B] p-1 font-black"
+                      >
+                        <X className="w-4 h-4 stroke-[2.5]" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-black text-[#777777] uppercase">
+                        Or Paste Custom Notes Directly:
+                      </span>
+                      {customSourceText && (
+                        <span className="text-[10px] font-mono text-[#777777]">
+                          {customSourceText.split(/\s+/).filter(Boolean).length} words · {customSourceText.length} chars
+                        </span>
+                      )}
+                    </div>
+                    <textarea
+                      rows={4}
+                      value={customSourceText}
+                      onChange={(e) => {
+                        setCustomSourceText(e.target.value)
+                        setCustomWordCount(e.target.value.split(/\s+/).filter(Boolean).length)
+                      }}
+                      placeholder="Paste lecture text, book chapters, or specialized notes here. The AI will strictly ask questions only from this exact source material..."
+                      className="w-full p-3 bg-white border-2 border-[#E5E5E5] rounded-xl text-xs font-bold text-[#4B4B4B] placeholder-[#777777] focus:outline-none focus:border-[#1CB0F6]"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 text-xs font-black text-[#4B4B4B] uppercase cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={saveToMaterials}
+                        onChange={(e) => setSaveToMaterials(e.target.checked)}
+                        className="w-4 h-4 rounded text-[#58CC02] focus:ring-0 cursor-pointer"
+                      />
+                      <span>Save parsed text to Program Study Hub</span>
+                    </label>
+                    {customSourceText && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playClickPop()
+                          setCustomSourceText('')
+                          setCustomFileName('')
+                          setCustomWordCount(0)
+                        }}
+                        className="text-[11px] font-black text-[#FF4B4B] uppercase hover:underline"
+                      >
+                        Clear Text
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Launch Modal Button */}
             <button
               onClick={handleOpenStandardGenerator}
-              className="w-full py-3.5 rounded-2xl bg-[#58CC02] border-2 border-[#58A700] border-b-4 text-white font-black text-xs sm:text-sm uppercase tracking-wider hover:bg-[#58A700] active:border-b-0 active:translate-y-[4px] transition-all duration-75 flex items-center justify-center gap-2 shadow-xs select-none"
+              disabled={genSourceMode === 'strict_custom_source' && !customSourceText.trim()}
+              className="w-full py-3.5 rounded-2xl bg-[#58CC02] border-2 border-[#58A700] border-b-4 text-white font-black text-xs sm:text-sm uppercase tracking-wider hover:bg-[#58A700] active:border-b-0 active:translate-y-[4px] transition-all duration-75 flex items-center justify-center gap-2 shadow-xs select-none disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Zap className="w-4 h-4 text-white stroke-[2.5]" />
-              <span>Launch Live Generation Pipeline ({genQuestionCount}Q {genDifficulty.toUpperCase()})</span>
+              <span>
+                Launch Live Generation Pipeline ({genQuestionCount}Q · {genDifficulty.toUpperCase()} · {genLanguage.toUpperCase()})
+              </span>
             </button>
           </div>
 
@@ -709,6 +1045,40 @@ export default function ProgramHubClient({
                         <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-[#F7F7F7] border border-[#E5E5E5] text-[#4B4B4B]">
                           {quiz.difficulty || 'medium'}
                         </span>
+                        {/* Language Badge */}
+                        <span
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                            quiz.language === 'arabic'
+                              ? 'bg-[#D7FFB8] text-[#58A700] border-[#58CC02]'
+                              : quiz.language === 'urdu'
+                              ? 'bg-[#F2E7FE] text-[#7F22FE] border-[#CE82FF]'
+                              : quiz.language === 'malayalam'
+                              ? 'bg-[#FFF5D6] text-[#D9A300] border-[#FFC800]'
+                              : 'bg-[#DDF4FF] text-[#1899D6] border-[#1CB0F6]'
+                          }`}
+                        >
+                          {quiz.language ? quiz.language.toUpperCase() : 'EN'}
+                        </span>
+                        {/* Strict Source Mode Badge */}
+                        {quiz.sourceMode === 'strict_custom_source' && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-[#FFF5D6] text-[#7A5B00] border border-[#FFC800] flex items-center gap-1">
+                            <FileText className="w-3 h-3 stroke-[2.5]" />
+                            <span>Strict Source</span>
+                          </span>
+                        )}
+                        {/* Question Types Badges */}
+                        {quiz.questionFormats && quiz.questionFormats.length > 0 && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-[#F7F7F7] border border-[#E5E5E5] text-[#777777]">
+                            {quiz.questionFormats
+                              .map((f: string) => {
+                                if (f === 'fill_blank') return 'Blank'
+                                if (f === 'statement_verify') return 'Stmt'
+                                if (f === 'assertion_reason') return 'Assert'
+                                return 'MCQ'
+                              })
+                              .join('+')}
+                          </span>
+                        )}
                         <span className="text-xs text-[#777777] font-bold">
                           {quiz.questions?.length || quiz.questionCount || 10} Questions · {quiz.sessionWindow || 'Morning'}
                         </span>
@@ -928,6 +1298,12 @@ export default function ProgramHubClient({
         sessionWindow={genSessionWindow}
         useLiveSearch={genLiveSearch}
         isRevenge={isRevengeLaunch}
+        language={genLanguage}
+        sourceMode={genSourceMode}
+        questionFormats={genFormats}
+        customSourceText={customSourceText}
+        saveToMaterials={saveToMaterials}
+        customMaterialTitle={customMaterialTitle}
         onQuizGenerated={handleQuizGenerated}
       />
 

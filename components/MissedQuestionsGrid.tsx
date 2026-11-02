@@ -103,22 +103,54 @@ export default function MissedQuestionsGrid({
                 {missedAnswers.map((ans, idx) => {
                   const question = quiz?.questions ? quiz.questions[ans.questionIndex] : null
 
+                  const isRtl =
+                    quiz?.language === 'arabic' ||
+                    quiz?.language === 'urdu' ||
+                    /[\u0600-\u06FF]/.test(question?.questionText || '')
+
+                  const typeLabel =
+                    question?.questionType === 'fill_blank'
+                      ? 'Fill in Blank'
+                      : question?.questionType === 'statement_verify'
+                      ? 'Statement Check'
+                      : question?.questionType === 'assertion_reason'
+                      ? 'Assertion-Reason'
+                      : 'MCQ'
+
                   return (
                     <div
                       key={ans.questionIndex || idx}
-                      className="rounded-2xl border border-rose-200 bg-white p-4 shadow-xs"
+                      className="rounded-2xl border-2 border-rose-200 bg-white p-4 shadow-xs"
                     >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
                           {ans.topicTag || question?.topicTag || 'General'}
                         </span>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-[#DDF4FF] text-[#1899D6] border border-[#1CB0F6]/30 px-2 py-0.5 rounded-md">
+                          {typeLabel}
+                        </span>
+                        {quiz?.language && (
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-[#FFF0D6] text-[#E58700] px-2 py-0.5 rounded-md">
+                            {quiz.language}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs sm:text-sm font-bold text-slate-900 mb-3">
+                      <p
+                        dir={isRtl ? 'rtl' : 'ltr'}
+                        className={`text-sm sm:text-base font-bold text-slate-900 mb-3 ${
+                          isRtl ? 'text-right leading-loose' : 'text-left leading-relaxed'
+                        }`}
+                      >
                         {question?.questionText || `Question #${ans.questionIndex + 1}`}
                       </p>
 
                       <div className="space-y-2 text-xs">
-                        <div className="flex items-start gap-2 text-rose-700 bg-rose-50/70 p-2.5 rounded-xl border border-rose-200/50">
+                        <div
+                          dir={isRtl ? 'rtl' : 'ltr'}
+                          className={`flex items-start gap-2 text-rose-700 bg-rose-50/70 p-2.5 rounded-xl border border-rose-200/50 ${
+                            isRtl ? 'text-right' : 'text-left'
+                          }`}
+                        >
                           <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" strokeWidth={2} />
                           <div>
                             <span className="font-bold">Your answer: </span>
@@ -127,7 +159,12 @@ export default function MissedQuestionsGrid({
                         </div>
 
                         {question && (
-                          <div className="flex items-start gap-2 text-[#00A896] bg-[#00A896]/10 p-2.5 rounded-xl border border-[#00A896]/30">
+                          <div
+                            dir={isRtl ? 'rtl' : 'ltr'}
+                            className={`flex items-start gap-2 text-[#00A896] bg-[#00A896]/10 p-2.5 rounded-xl border border-[#00A896]/30 ${
+                              isRtl ? 'text-right' : 'text-left'
+                            }`}
+                          >
                             <CheckCircle2 className="w-4 h-4 text-[#00A896] shrink-0 mt-0.5" strokeWidth={2} />
                             <div>
                               <span className="font-bold">Correct answer: </span>
@@ -137,7 +174,12 @@ export default function MissedQuestionsGrid({
                         )}
 
                         {question?.explanation && (
-                          <div className="flex items-start gap-2 mt-2 pt-2 text-slate-600 bg-amber-50/50 p-2.5 rounded-xl border border-amber-200/40">
+                          <div
+                            dir={isRtl ? 'rtl' : 'ltr'}
+                            className={`flex items-start gap-2 mt-2 pt-2 text-slate-600 bg-amber-50/50 p-2.5 rounded-xl border border-amber-200/40 ${
+                              isRtl ? 'text-right' : 'text-left'
+                            }`}
+                          >
                             <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" strokeWidth={2} />
                             <span className="text-[11px] leading-relaxed">{question.explanation}</span>
                           </div>

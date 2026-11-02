@@ -17,6 +17,12 @@ export async function POST(request: NextRequest) {
     difficulty = 'medium',
     questionCount = 10,
     title,
+    language = 'english',
+    sourceMode = 'syllabus_and_benchmarks',
+    questionFormats = ['mcq'],
+    customSourceText = '',
+    saveToMaterials = false,
+    customMaterialTitle = '',
   } = body
 
   if (!programCode) {
@@ -50,7 +56,27 @@ export async function POST(request: NextRequest) {
       questionCount: safeCount,
       engine,
       liveContext,
+      language,
+      sourceMode,
+      questionFormats,
+      customSourceText,
     })
+
+    // If user asked to save material to Study Hub
+    if (saveToMaterials && customSourceText.trim()) {
+      try {
+        await StudyMaterial.create({
+          programCode,
+          title: customMaterialTitle || `${program.code} Custom Material (${new Date().toLocaleDateString()})`,
+          uploadedBy: 'Quiz Generator',
+          rawMarkdown: customSourceText.trim(),
+          summaryCues: [],
+          flashcards: [],
+        })
+      } catch (e) {
+        console.warn('Failed to save custom source to study materials:', e)
+      }
+    }
 
     const difficultyUpper = difficulty.toUpperCase()
     const quiz = await Quiz.create({
@@ -61,6 +87,9 @@ export async function POST(request: NextRequest) {
       difficulty,
       questionCount: result.questions.length,
       aiModelUsed: engine === 'nvidia' ? 'NVIDIA Nemotron Super' : 'OrcaRouter DeepSeek V4 Flash',
+      language,
+      sourceMode,
+      questionFormats,
       questions: result.questions,
     })
 

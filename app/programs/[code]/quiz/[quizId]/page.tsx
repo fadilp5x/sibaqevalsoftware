@@ -33,6 +33,7 @@ interface Question {
   correctOptionIndex: number
   topicTag: string
   explanation: string
+  questionType?: 'mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason'
 }
 
 interface Quiz {
@@ -40,6 +41,9 @@ interface Quiz {
   title: string
   durationMinutes: number
   difficulty?: 'easy' | 'medium' | 'hard' | 'extreme'
+  language?: 'english' | 'arabic' | 'urdu' | 'malayalam'
+  sourceMode?: 'syllabus_and_benchmarks' | 'strict_custom_source'
+  questionFormats?: string[]
   questions: Question[]
   programCode: string
 }
@@ -273,8 +277,12 @@ export default function QuizEnginePage() {
     return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
   }
 
-  const optionLabels = ['A', 'B', 'C', 'D']
   const question = quiz?.questions[currentQ]
+  const isRtl =
+    quiz?.language === 'arabic' ||
+    quiz?.language === 'urdu' ||
+    /[\u0600-\u06FF]/.test(question?.questionText || '')
+  const optionLabels = isRtl ? ['أ', 'ب', 'ج', 'د'] : ['A', 'B', 'C', 'D']
   const progressPct = quiz && quiz.questions.length ? (answers.length / quiz.questions.length) * 100 : 0
   const isAnsCorrect =
     checked && selectedOption !== null && question && selectedOption === question.correctOptionIndex
@@ -551,29 +559,70 @@ export default function QuizEnginePage() {
 
       {/* Main Question Area */}
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
-        {/* Topic Tag & Counter */}
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <span className="text-xs font-black uppercase px-3 py-1 rounded-xl bg-[#DDF4FF] border border-[#1CB0F6] text-[#1899D6]">
-            {question.topicTag}
-          </span>
+        {/* Topic Tag, Format Type Pill, Language & Counter */}
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-black uppercase px-3 py-1 rounded-xl bg-[#DDF4FF] border border-[#1CB0F6] text-[#1899D6]">
+              {question.topicTag}
+            </span>
+            {question.questionType && (
+              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-xl bg-[#F2E7FE] border border-[#CE82FF] text-[#7F22FE]">
+                {question.questionType === 'fill_blank'
+                  ? 'Fill in Blank'
+                  : question.questionType === 'statement_verify'
+                  ? 'Statement Check'
+                  : question.questionType === 'assertion_reason'
+                  ? 'Assertion-Reason'
+                  : 'Standard MCQ'}
+              </span>
+            )}
+            {quiz.language && quiz.language !== 'english' && (
+              <span
+                className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-xl border ${
+                  quiz.language === 'arabic'
+                    ? 'bg-[#D7FFB8] text-[#58A700] border-[#58CC02]'
+                    : quiz.language === 'urdu'
+                    ? 'bg-[#F2E7FE] text-[#7F22FE] border-[#CE82FF]'
+                    : 'bg-[#FFF5D6] text-[#D9A300] border-[#FFC800]'
+                }`}
+              >
+                {quiz.language === 'arabic'
+                  ? 'العربية (AR)'
+                  : quiz.language === 'urdu'
+                  ? 'اردو (UR)'
+                  : 'മലയാളം (ML)'}
+              </span>
+            )}
+          </div>
           <span className="text-xs font-black uppercase text-[#777777]">
             Question {currentQ + 1} of {quiz.questions.length}
           </span>
         </div>
 
-        {/* Question Stem & Text */}
-        <div className="bg-white border-2 border-[#E5E5E5] border-b-4 rounded-2xl p-6 mb-5 shadow-xs">
+        {/* Question Stem & Text with RTL & Fusha Arabic Script Support */}
+        <div
+          dir={isRtl ? 'rtl' : 'ltr'}
+          className={`bg-white border-2 border-[#E5E5E5] border-b-4 rounded-2xl p-6 mb-5 shadow-xs ${
+            isRtl ? 'text-right' : 'text-left'
+          }`}
+        >
           {question.questionStem && (
             <p className="text-xs font-black uppercase text-[#777777] mb-2 tracking-wider">
               {question.questionStem}
             </p>
           )}
-          <p className="text-lg sm:text-xl font-black text-[#4B4B4B] leading-relaxed">
+          <p
+            className={`font-black text-[#4B4B4B] ${
+              isRtl
+                ? 'text-xl sm:text-2xl leading-loose font-arabic'
+                : 'text-lg sm:text-xl leading-relaxed'
+            }`}
+          >
             {question.questionText}
           </p>
         </div>
 
-        {/* 3D Option Buttons */}
+        {/* 3D Option Buttons with RTL Alignment */}
         <div className="space-y-3 mb-6">
           {question.options.map((opt, idx) => {
             let optionStyle =
@@ -595,9 +644,12 @@ export default function QuizEnginePage() {
             return (
               <button
                 key={idx}
+                dir={isRtl ? 'rtl' : 'ltr'}
                 onClick={() => handleSelectOptionClick(idx)}
                 disabled={checked}
-                className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 border-b-4 text-left transition-all duration-75 active:border-b-0 active:translate-y-[4px] disabled:cursor-default select-none ${optionStyle}`}
+                className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 border-b-4 transition-all duration-75 active:border-b-0 active:translate-y-[4px] disabled:cursor-default select-none ${
+                  isRtl ? 'text-right' : 'text-left'
+                } ${optionStyle}`}
               >
                 <span
                   className={`w-8 h-8 shrink-0 rounded-xl flex items-center justify-center text-xs font-black uppercase border ${
@@ -608,7 +660,15 @@ export default function QuizEnginePage() {
                 >
                   {optionLabels[idx]}
                 </span>
-                <span className="text-sm font-black leading-snug">{opt}</span>
+                <span
+                  className={`flex-1 font-black ${
+                    isRtl
+                      ? 'text-base sm:text-lg leading-relaxed'
+                      : 'text-sm leading-snug'
+                  }`}
+                >
+                  {opt}
+                </span>
               </button>
             )
           })}
@@ -631,31 +691,31 @@ export default function QuizEnginePage() {
               Select an option and click CHECK (or press 1-4 / A-D)
             </div>
           ) : (
-            <div className="flex-1">
+            <div className={`flex-1 ${isRtl ? 'text-right' : 'text-left'}`} dir={isRtl ? 'rtl' : 'ltr'}>
               <div className="flex items-center gap-2 mb-1">
                 {isAnsCorrect ? (
                   <>
                     <CheckCircle2 className="w-6 h-6 text-[#58CC02] stroke-[2.5]" />
                     <span className="text-lg font-black text-[#58A700] uppercase tracking-wide">
-                      AMAZING!
+                      {isRtl ? 'إجابة صحيحة وممتازة!' : 'AMAZING!'}
                     </span>
                   </>
                 ) : (
                   <>
                     <XCircle className="w-6 h-6 text-[#FF4B4B] stroke-[2.5]" />
                     <span className="text-lg font-black text-[#EA2B2B] uppercase tracking-wide">
-                      CORRECT ANSWER:
+                      {isRtl ? 'الإجابة الصحيحة:' : 'CORRECT ANSWER:'}
                     </span>
                   </>
                 )}
               </div>
               {!isAnsCorrect && (
-                <div className="text-xs font-black text-[#EA2B2B] mb-1">
+                <div className={`text-xs font-black text-[#EA2B2B] mb-1 ${isRtl ? 'font-arabic text-sm' : ''}`}>
                   {question.options[question.correctOptionIndex]}
                 </div>
               )}
               {question.explanation && (
-                <p className="text-xs font-bold text-[#4B4B4B] leading-relaxed">
+                <p className={`text-xs font-bold text-[#4B4B4B] leading-relaxed ${isRtl ? 'font-arabic text-sm' : ''}`}>
                   {question.explanation}
                 </p>
               )}

@@ -57,5 +57,9 @@ export async function POST(request: NextRequest) {
     flashcards: [],
   })
 
-  return NextResponse.json({ material }, { status: 201 })
+  return NextResponse.json({
+    material,
+    extractedText: rawMarkdown,
+    wordCount: rawMarkdown.split(/\s+/).filter(Boolean).length,
+  }, { status: 201 })
 }

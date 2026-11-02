@@ -112,6 +112,10 @@ export interface GenerateQuizParams {
   questionCount: number
   engine: 'nvidia' | 'orca'
   liveContext?: string
+  language?: 'english' | 'arabic' | 'urdu' | 'malayalam'
+  sourceMode?: 'syllabus_and_benchmarks' | 'strict_custom_source'
+  questionFormats?: ('mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')[]
+  customSourceText?: string
 }
 
 export interface QuizQuestion {
@@ -121,6 +125,7 @@ export interface QuizQuestion {
   correctOptionIndex: number
   topicTag: string
   explanation: string
+  questionType?: 'mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason'
 }
 
 export interface QuizGenerationResult {
@@ -139,39 +144,86 @@ export async function generateQuiz(params: GenerateQuizParams): Promise<QuizGene
     questionCount,
     engine,
     liveContext,
+    language = 'english',
+    sourceMode = 'syllabus_and_benchmarks',
+    questionFormats = ['mcq'],
+    customSourceText = '',
   } = params
 
-  // Fetch benchmark datasets (e.g. real IELTS Band 9 drills from GitHub, UPSC, CAT)
-  let benchmarkData = ''
-  try {
-    benchmarkData = await getBenchmarkGrounding(programCode)
-  } catch {
-    // fallback gracefully
+  const defaultFormats: ('mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')[] = ['mcq']
+  const formatsList: ('mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')[] =
+    questionFormats && questionFormats.length ? questionFormats : defaultFormats
+
+  // Language Directives
+  const languageDirectives: Record<string, string> = {
+    arabic: `LANGUAGE ENFORCEMENT: ARABIC (العربية الفصحى)
+Write 100% of questionText, options, and explanation in authentic, grammatically precise Modern Standard / Classical Arabic (الفصحى) appropriate for Islamic & Arabic degree scholars. Include accurate vowel diacritics (harakat) where necessary for precision. Do NOT output English words in questionText or options.`,
+    urdu: `LANGUAGE ENFORCEMENT: URDU (اردو)
+Write 100% of questionText, options, and explanation in authentic literary & academic Urdu script (اردو). Ensure natural, formal academic phrasing suitable for Aliyah level scholarship. Do NOT output English words in questionText or options.`,
+    malayalam: `LANGUAGE ENFORCEMENT: MALAYALAM (മലയാളം)
+Write 100% of questionText, options, and explanation in natural, academic Malayalam script (മലയാളം). Use precise terminology appropriate for degree students. Do NOT output English words in questionText or options.`,
+    english: `LANGUAGE ENFORCEMENT: ENGLISH
+Write all questionText, options, and explanation fields in crisp academic English.`,
+  }
+  const languageInstruction = languageDirectives[language] || languageDirectives.english
+
+  // Knowledge Source Mode
+  let sourceInstruction = ''
+  if (sourceMode === 'strict_custom_source' && customSourceText?.trim()) {
+    sourceInstruction = `CRITICAL GROUNDING RULE: You are in STRICT SOURCE-ONLY MODE. You MUST generate 100% of the questions, answers, and explanations EXCLUSIVELY from the provided <CUSTOM_SOURCE_MATERIAL> below. Do NOT use outside general knowledge or external facts not present in this text.
+
+<CUSTOM_SOURCE_MATERIAL>
+${customSourceText.trim().slice(0, 15000)}
+</CUSTOM_SOURCE_MATERIAL>`
+  } else {
+    // Fetch benchmark datasets (e.g. real IELTS Band 9 drills from GitHub, UPSC, CAT)
+    let benchmarkData = ''
+    try {
+      benchmarkData = await getBenchmarkGrounding(programCode)
+    } catch {
+      // fallback gracefully
+    }
+    sourceInstruction = `Program Domain / Concept Reference: ${conceptNote}
+
+BENCHMARK COACHING STANDARDS:
+${benchmarkData}`
   }
 
   const difficultyGuidelines: Record<string, string> = {
-    easy: 'EASY (FOUNDATION): Generate foundational recall MCQs testing direct definitions, article numbers, primary facts, core terminology, and fundamental rules. Questions must be direct and unambiguous.',
-    medium: `MEDIUM (SIBAQ STANDARD): Generate standard inter-college competition level MCQs testing conceptual clarity and application of the syllabus. Calibrate vocabulary and question depth specifically for the ${division} student division.`,
-    hard: 'HARD (ANALYTICAL): Generate tough analytical MCQs. Include multi-statement verification questions (e.g., "Consider the following statements... Which of the statements given above is/are correct?"), practical scenario applications, and very close, plausible distractors.',
-    extreme: 'EXTREME (OLYMPIAD / FINALS): Generate championship-finals / UPSC Olympiad-grade questions. Use complex Assertion-Reasoning formats ("Assertion [A] and Reason [R]"), subtle constitutional/literary/theological exceptions, multi-layered analytical traps, and deep synthesis.',
+    easy: 'EASY (FOUNDATION): Generate foundational recall questions testing direct definitions, article numbers, primary facts, core terminology, and fundamental rules. Questions must be direct and unambiguous.',
+    medium: `MEDIUM (SIBAQ STANDARD): Generate standard inter-college competition level questions testing conceptual clarity and application of the syllabus. Calibrate depth specifically for the ${division} student division.`,
+    hard: 'HARD (ANALYTICAL): Generate tough analytical questions with practical scenario applications, tricky distractors, and nuanced distinctions.',
+    extreme: 'EXTREME (OLYMPIAD / FINALS): Generate championship-finals / Olympiad-grade questions with subtle exceptions, multi-layered analytical traps, and deep synthesis.',
   }
 
   const difficultyInstruction = difficultyGuidelines[difficulty] || difficultyGuidelines.medium
 
-  const systemPrompt = `You are a ruthless International Olympiad, UPSC CSE, and IELTS Band-9.0 Head Coach training university degree students to become national champions in SIBAQ '26.
+  const formatGuidelines = `QUESTION FORMAT ENFORCEMENT:
+Distribute the ${questionCount} questions across these requested format types: ${formatsList.join(', ')}.
+Each question JSON object MUST specify its exact "questionType" matching one of: "mcq", "fill_blank", "statement_verify", "assertion_reason".
+
+Format Specifications:
+1. "mcq": Standard direct question testing a clear fact, rule, scholar, or concept, with 4 plausible options.
+2. "fill_blank": Format questionText with a clear "________" blank testing crucial terminology, legal/grammatical definitions, dates, or concepts, with 4 options to complete the sentence.
+3. "statement_verify": Present 2 or 3 numbered statements ("1. ... \\n2. ... \\n3. ...") followed by "Which of the statements given above is/are correct?" (translated into the target language). Options should evaluate the combinations (e.g., "1 only", "2 and 3 only", "1 and 3 only", "1, 2, and 3" translated into target language).
+4. "assertion_reason": Format questionText with "Assertion (A): [statement]\\nReason (R): [statement]". Options must test standard A/R evaluation (translated into the target language: both true & R correct explanation, both true & R not correct explanation, A true R false, A false R true).`
+
+  const systemPrompt = `You are a ruthless International Olympiad, UPSC CSE, and University Head Coach training degree students to become national champions in SIBAQ '26.
 
 CRITICAL GROUNDING DIRECTIVE:
 NEVER ask meta-questions about the SIBAQ Concept Note rules, duration, competition guidelines, or syllabus description itself! The Concept Note merely defines the subject territory.
-Your questions must test actual subject matter mastery, deep textual analysis, statutory applications, or complex mathematical/analytical logic. NEVER ask questions about what the competition tests or what the concept note says.
+Your questions must test actual subject matter mastery, deep textual analysis, statutory applications, or complex mathematical/analytical logic.
 
 Student Division: ${division}
-Program Domain / Concept Reference: ${conceptNote}
 
-BENCHMARK COACHING STANDARDS:
-${benchmarkData}
+${languageInstruction}
+
+${sourceInstruction}
 
 DIFFICULTY LEVEL: ${difficulty.toUpperCase()}
 ${difficultyInstruction}
+
+${formatGuidelines}
 
 TARGET WEAKNESSES: 60% of questions MUST target these candidate weak topics: ${weaknesses.length ? weaknesses.join(', ') : 'core syllabus topics'}.
 STRICT ANTI-DUPLICATION: Do NOT repeat or paraphrase any of these previously asked question stems: ${askedRegistry.slice(-100).join(' | ') || 'none yet'}.
@@ -179,13 +231,14 @@ ${liveContext ? `Live web context:\n${liveContext}\n` : ''}
 
 Return ONLY a valid JSON array of ${questionCount} question objects, each with keys:
 - questionStem (short 5-10 word key identifying the concept)
-- questionText (the complete challenging question)
-- options (array of exactly 4 strings; distractors must be plausible and sophisticated)
+- questionText (the complete challenging question formatted per its questionType)
+- options (array of exactly 4 strings in the target language)
 - correctOptionIndex (0-3)
 - topicTag (short topic label)
-- explanation (comprehensive coach explanation of the correct logic and why the distractors fail)`
+- explanation (comprehensive coach explanation in the target language)
+- questionType ("mcq" | "fill_blank" | "statement_verify" | "assertion_reason")`
 
-  const prompt = `Generate exactly ${questionCount} ${difficulty.toUpperCase()} difficulty champion-level quiz questions as a JSON array. No markdown fences, no preamble — raw JSON only.`
+  const prompt = `Generate exactly ${questionCount} ${difficulty.toUpperCase()} difficulty champion-level quiz questions in ${language.toUpperCase()} as a JSON array. No markdown fences, no preamble — raw JSON only.`
 
   let rawText = ''
   try {
@@ -198,6 +251,14 @@ Return ONLY a valid JSON array of ${questionCount} question objects, each with k
     // Strip markdown fences if model wraps output
     const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     const questions: QuizQuestion[] = JSON.parse(cleaned)
+
+    // Ensure questionType is populated
+    questions.forEach((q, idx) => {
+      if (!q.questionType || !['mcq', 'fill_blank', 'statement_verify', 'assertion_reason'].includes(q.questionType)) {
+        q.questionType = formatsList[idx % formatsList.length]
+      }
+    })
+
     return { questions, rawText }
   } catch {
     // Fallback: try to extract JSON array from the response
@@ -205,6 +266,11 @@ Return ONLY a valid JSON array of ${questionCount} question objects, each with k
     if (match) {
       try {
         const questions: QuizQuestion[] = JSON.parse(match[0])
+        questions.forEach((q, idx) => {
+          if (!q.questionType || !['mcq', 'fill_blank', 'statement_verify', 'assertion_reason'].includes(q.questionType)) {
+            q.questionType = formatsList[idx % formatsList.length]
+          }
+        })
         return { questions, rawText }
       } catch {
         throw new Error('AI returned malformed JSON. Raw: ' + rawText.slice(0, 300))

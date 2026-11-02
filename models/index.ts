@@ -106,6 +106,9 @@ const studyMaterialSchema = new Schema<IStudyMaterial>({
 
 /* ─────────────── Quiz ─────────────── */
 export type DifficultyType = 'easy' | 'medium' | 'hard' | 'extreme'
+export type QuizLanguage = 'english' | 'arabic' | 'urdu' | 'malayalam'
+export type QuizSourceMode = 'syllabus_and_benchmarks' | 'strict_custom_source'
+export type QuestionType = 'mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason'
 
 export interface IQuestion {
   questionStem: string
@@ -114,6 +117,7 @@ export interface IQuestion {
   correctOptionIndex: number
   topicTag: string
   explanation: string
+  questionType?: QuestionType
 }
 
 export interface IQuiz extends Document {
@@ -124,6 +128,9 @@ export interface IQuiz extends Document {
   difficulty: DifficultyType
   questionCount: number
   aiModelUsed: string
+  language?: QuizLanguage
+  sourceMode?: QuizSourceMode
+  questionFormats?: QuestionType[]
   questions: IQuestion[]
   createdAt: Date
 }
@@ -140,6 +147,20 @@ const quizSchema = new Schema<IQuiz>({
   },
   questionCount: { type: Number, default: 20 },
   aiModelUsed: { type: String, default: 'System' },
+  language: {
+    type: String,
+    enum: ['english', 'arabic', 'urdu', 'malayalam'],
+    default: 'english',
+  },
+  sourceMode: {
+    type: String,
+    enum: ['syllabus_and_benchmarks', 'strict_custom_source'],
+    default: 'syllabus_and_benchmarks',
+  },
+  questionFormats: {
+    type: [String],
+    default: ['mcq'],
+  },
   questions: [
     {
       questionStem: String,
@@ -148,6 +169,11 @@ const quizSchema = new Schema<IQuiz>({
       correctOptionIndex: Number,
       topicTag: String,
       explanation: String,
+      questionType: {
+        type: String,
+        enum: ['mcq', 'fill_blank', 'statement_verify', 'assertion_reason'],
+        default: 'mcq',
+      },
     },
   ],
   createdAt: { type: Date, default: Date.now },

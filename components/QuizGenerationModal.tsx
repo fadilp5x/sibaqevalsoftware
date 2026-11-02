@@ -12,6 +12,8 @@ import {
   AlertCircle,
   X,
   RefreshCw,
+  Globe,
+  FileText,
 } from 'lucide-react'
 import { IProgram } from '@/models'
 import { playStepTick, playCorrectSound, playWrongSound, playClickPop } from '@/lib/sounds'
@@ -27,6 +29,12 @@ interface QuizGenerationModalProps {
   sessionWindow?: 'Morning' | 'Evening'
   useLiveSearch?: boolean
   isRevenge?: boolean
+  language?: 'english' | 'arabic' | 'urdu' | 'malayalam'
+  sourceMode?: 'syllabus_and_benchmarks' | 'strict_custom_source'
+  questionFormats?: ('mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')[]
+  customSourceText?: string
+  saveToMaterials?: boolean
+  customMaterialTitle?: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onQuizGenerated: (quiz: any) => void
 }
@@ -42,6 +50,12 @@ export default function QuizGenerationModal({
   sessionWindow = 'Morning',
   useLiveSearch = false,
   isRevenge = false,
+  language = 'english',
+  sourceMode = 'syllabus_and_benchmarks',
+  questionFormats = ['mcq'],
+  customSourceText = '',
+  saveToMaterials = false,
+  customMaterialTitle = '',
   onQuizGenerated,
 }: QuizGenerationModalProps) {
   const [currentStage, setCurrentStage] = useState<number>(1)
@@ -56,11 +70,39 @@ export default function QuizGenerationModal({
 
   // Identify Dataset
   const getDatasetBadge = () => {
+    if (sourceMode === 'strict_custom_source') {
+      return 'STRICT SOURCE-ONLY MODE: Custom PDF / Text Upload'
+    }
     const code = program.code?.toUpperCase()
     if (code === 'AX40') return 'LuchoBazz/ielts-ai-dataset (Band 9.0)'
     if (code === 'AX39') return 'UPSC CSE Prelims / CLAT PG Law Bank'
     if (code === 'AN35') return 'CAT / GMAT Deductive Matrix Bank'
     return "SIBAQ '26 Canonical Academic Corpus"
+  }
+
+  const getLanguageLabel = () => {
+    switch (language) {
+      case 'arabic':
+        return 'العربية (Arabic)'
+      case 'urdu':
+        return 'اردو (Urdu)'
+      case 'malayalam':
+        return 'മലയാളം (Malayalam)'
+      case 'english':
+      default:
+        return 'English (EN)'
+    }
+  }
+
+  const getFormatLabels = () => {
+    if (!questionFormats || questionFormats.length === 0) return 'Standard MCQ'
+    const map: Record<string, string> = {
+      mcq: 'MCQ',
+      fill_blank: 'Fill Blanks',
+      statement_verify: 'Statement Check',
+      assertion_reason: 'Assertion-Reason',
+    }
+    return questionFormats.map((f) => map[f] || f).join(', ')
   }
 
   // Active candidate weak topics
@@ -120,6 +162,12 @@ export default function QuizGenerationModal({
               questionCount,
               sessionWindow,
               useLiveSearch,
+              language,
+              sourceMode,
+              questionFormats,
+              customSourceText,
+              saveToMaterials,
+              customMaterialTitle,
             }),
           })
         }
@@ -191,6 +239,12 @@ export default function QuizGenerationModal({
     sessionWindow,
     useLiveSearch,
     isRevenge,
+    language,
+    sourceMode,
+    questionFormats,
+    customSourceText,
+    saveToMaterials,
+    customMaterialTitle,
     onClose,
     onQuizGenerated,
   ])
@@ -206,7 +260,7 @@ export default function QuizGenerationModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#4B4B4B]/60 backdrop-blur-xs select-none animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg rounded-3xl bg-white border-2 border-[#E5E5E5] border-b-[6px] shadow-2xl overflow-hidden p-6 sm:p-7">
-        {/* Close button (only available if error or user wants to abort) */}
+        {/* Close button */}
         <button
           onClick={() => {
             playClickPop()
@@ -264,7 +318,7 @@ export default function QuizGenerationModal({
 
         {/* 5-Stage Documented Pipeline */}
         <div className="space-y-3 mb-6">
-          {/* Stage 1 */}
+          {/* Stage 1: Syllabus, Scope & Language */}
           <div
             className={`p-3 rounded-2xl border-2 transition-all ${
               currentStage >= 1
@@ -276,7 +330,7 @@ export default function QuizGenerationModal({
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-[#1CB0F6] stroke-[2.5]" />
                 <span className="text-xs font-black uppercase text-[#4B4B4B]">
-                  Stage 1: Syllabus & Scope Isolation
+                  Stage 1: Scope, Language &amp; Format Isolation
                 </span>
               </div>
               {currentStage > 1 ? (
@@ -289,16 +343,19 @@ export default function QuizGenerationModal({
               <span className="bg-white border border-[#E5E5E5] px-2 py-0.5 rounded-md text-[#4B4B4B]">
                 {program.code} ({program.title})
               </span>
-              <span className="bg-white border border-[#E5E5E5] px-2 py-0.5 rounded-md text-[#4B4B4B]">
-                {program.division}
+              <span className="bg-[#DDF4FF] border border-[#1CB0F6] text-[#1899D6] px-2 py-0.5 rounded-md uppercase font-black">
+                {getLanguageLabel()}
               </span>
-              <span className="bg-[#DDF4FF] border border-[#1CB0F6] text-[#1899D6] px-2 py-0.5 rounded-md uppercase">
-                Tier: {difficulty}
+              <span className="bg-[#D7FFB8] border border-[#58CC02] text-[#58A700] px-2 py-0.5 rounded-md uppercase font-black">
+                {difficulty}
+              </span>
+              <span className="bg-white border border-[#E5E5E5] px-2 py-0.5 rounded-md text-[#4B4B4B]">
+                {getFormatLabels()}
               </span>
             </div>
           </div>
 
-          {/* Stage 2 */}
+          {/* Stage 2: Knowledge Source Injection */}
           <div
             className={`p-3 rounded-2xl border-2 transition-all ${
               currentStage >= 2
@@ -308,9 +365,13 @@ export default function QuizGenerationModal({
           >
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-[#FF9600] stroke-[2.5]" />
+                {sourceMode === 'strict_custom_source' ? (
+                  <FileText className="w-4 h-4 text-[#FF9600] stroke-[2.5]" />
+                ) : (
+                  <Database className="w-4 h-4 text-[#FF9600] stroke-[2.5]" />
+                )}
                 <span className="text-xs font-black uppercase text-[#4B4B4B]">
-                  Stage 2: Benchmark Dataset Injection
+                  Stage 2: Knowledge Source Grounding
                 </span>
               </div>
               {currentStage > 2 ? (
@@ -320,18 +381,22 @@ export default function QuizGenerationModal({
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-[#777777] mt-1">
-              <span className="bg-white border border-[#E5E5E5] px-2 py-0.5 rounded-md text-[#FF9600]">
+              <span className={`px-2 py-0.5 rounded-md border font-black ${
+                sourceMode === 'strict_custom_source'
+                  ? 'bg-[#FFF0D6] border-[#FF9600] text-[#E58700]'
+                  : 'bg-white border-[#E5E5E5] text-[#FF9600]'
+              }`}>
                 {getDatasetBadge()}
               </span>
-              {useLiveSearch && (
-                <span className="bg-[#D7FFB8] border border-[#58CC02] text-[#58A700] px-2 py-0.5 rounded-md">
-                  Firecrawl Live Web: ACTIVE
+              {useLiveSearch && sourceMode !== 'strict_custom_source' && (
+                <span className="bg-[#D7FFB8] border border-[#58CC02] text-[#58A700] px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <Globe className="w-3 h-3" /> Live Web: ACTIVE
                 </span>
               )}
             </div>
           </div>
 
-          {/* Stage 3 */}
+          {/* Stage 3: Weakness Filter & Anti-Duplication */}
           <div
             className={`p-3 rounded-2xl border-2 transition-all ${
               currentStage >= 3
@@ -343,7 +408,7 @@ export default function QuizGenerationModal({
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#58CC02] stroke-[2.5]" />
                 <span className="text-xs font-black uppercase text-[#4B4B4B]">
-                  Stage 3: Weakness Filter & Anti-Duplication
+                  Stage 3: Weakness Targeting &amp; Anti-Duplication
                 </span>
               </div>
               {currentStage > 3 ? (
@@ -357,12 +422,12 @@ export default function QuizGenerationModal({
                 Targeting: <span className="text-[#4B4B4B]">{weakTopics}</span>
               </div>
               <div className="text-[10px] text-[#777777]">
-                Anti-duplicate filter: {antiDupCount} past stems shielded from repeat
+                Anti-duplicate registry: {antiDupCount} stems filtered
               </div>
             </div>
           </div>
 
-          {/* Stage 4 */}
+          {/* Stage 4: AI Question Synthesis */}
           <div
             className={`p-3 rounded-2xl border-2 transition-all ${
               currentStage >= 4
@@ -374,7 +439,7 @@ export default function QuizGenerationModal({
               <div className="flex items-center gap-2">
                 <BrainCircuit className="w-4 h-4 text-[#CE82FF] stroke-[2.5]" />
                 <span className="text-xs font-black uppercase text-[#4B4B4B]">
-                  Stage 4: AI Coach Question Synthesis
+                  Stage 4: AI Coach Question Synthesis ({getLanguageLabel()})
                 </span>
               </div>
               {currentStage > 4 ? (
@@ -386,14 +451,14 @@ export default function QuizGenerationModal({
               ) : null}
             </div>
             <div className="flex items-center gap-2 text-[11px] font-bold text-[#777777] mt-1">
-              <span className="bg-[#F3E5FF] border border-[#CE82FF] text-[#A568CC] px-2 py-0.5 rounded-md uppercase">
+              <span className="bg-[#F3E5FF] border border-[#CE82FF] text-[#A568CC] px-2 py-0.5 rounded-md uppercase font-black">
                 {engine === 'nemotron' ? 'NVIDIA Nemotron 70B' : 'DeepSeek V4 Flash'}
               </span>
-              <span>{isRevenge ? '10 Targeted Remedial MCQs' : `${questionCount} Olympiad MCQs`}</span>
+              <span>{isRevenge ? '10 Targeted Remedial MCQs' : `${questionCount} Questions per selected formats`}</span>
             </div>
           </div>
 
-          {/* Stage 5 */}
+          {/* Stage 5: Schema Validation */}
           <div
             className={`p-3 rounded-2xl border-2 transition-all ${
               currentStage >= 5
@@ -405,7 +470,7 @@ export default function QuizGenerationModal({
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-[#58CC02] stroke-[2.5]" />
                 <span className="text-xs font-black uppercase text-[#58A700]">
-                  Stage 5: Schema Validation & Timer Lock
+                  Stage 5: Schema Validation &amp; Timer Lock
                 </span>
               </div>
               {isCompleted ? (
