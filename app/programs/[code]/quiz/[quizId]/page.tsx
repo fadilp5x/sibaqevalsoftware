@@ -116,27 +116,33 @@ export default function QuizEnginePage() {
       .catch((e) => console.error('Failed to load quiz:', e))
   }, [code, quizId])
 
-  // Timer tick
+  // Timer tick — timestamp based so background tabs or mobile sleep never freeze it
   useEffect(() => {
-    if (phase !== 'in-progress') return
-    const key = `timer-${quizId}-${selectedCandidate}`
-    const saved = localStorage.getItem(key)
-    if (saved) setTimer(parseInt(saved))
+    if (phase !== 'in-progress' || !quiz) return
+    const key = `timer-end-${quizId}-${selectedCandidate}`
+    let targetEnd = Number(localStorage.getItem(key))
 
-    const interval = setInterval(() => {
-      setTimer((t) => {
-        const next = t - 1
-        localStorage.setItem(key, String(next))
-        if (next <= 0) {
-          clearInterval(interval)
-          handleSubmit()
-        }
-        return next
-      })
-    }, 1000)
+    const totalSeconds = (quiz.durationMinutes || 60) * 60
+    if (!targetEnd || isNaN(targetEnd) || targetEnd <= Date.now()) {
+      targetEnd = Date.now() + totalSeconds * 1000
+      localStorage.setItem(key, String(targetEnd))
+    }
+
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.round((targetEnd - Date.now()) / 1000))
+      setTimer(remaining)
+      if (remaining <= 0) {
+        clearInterval(interval)
+        localStorage.removeItem(key)
+        handleSubmit()
+      }
+    }
+
+    updateTimer()
+    const interval = setInterval(updateTimer, 500)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, selectedCandidate])
+  }, [phase, selectedCandidate, quiz])
 
   // Keyboard shortcuts
   useEffect(() => {

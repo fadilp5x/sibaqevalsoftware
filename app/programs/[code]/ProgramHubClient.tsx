@@ -37,6 +37,7 @@ import ShareQuizModal from '@/components/ShareQuizModal'
 import AdminModal from '@/components/AdminModal'
 import AICoachTab from '@/components/AICoachTab'
 import QuizGenerationModal from '@/components/QuizGenerationModal'
+import GenerationTaskDock, { GenerationTaskState } from '@/components/GenerationTaskDock'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { playClickPop } from '@/lib/sounds'
@@ -108,6 +109,7 @@ export default function ProgramHubClient({
   // Quiz Generation Modal Pipeline
   const [isGenModalOpen, setIsGenModalOpen] = useState(false)
   const [isRevengeLaunch, setIsRevengeLaunch] = useState(false)
+  const [generationTask, setGenerationTask] = useState<GenerationTaskState | null>(null)
 
   // Syllabus Modal
   const [isSyllabusOpen, setIsSyllabusOpen] = useState(false)
@@ -1305,6 +1307,7 @@ export default function ProgramHubClient({
         saveToMaterials={saveToMaterials}
         customMaterialTitle={customMaterialTitle}
         onQuizGenerated={handleQuizGenerated}
+        onTaskProgress={(task) => setGenerationTask(task)}
       />
 
       {/* 3. Share Quiz Modal */}
@@ -1320,6 +1323,15 @@ export default function ProgramHubClient({
         onClose={() => setIsAdminOpen(false)}
         onDataChanged={handleRefresh}
       />
+
+      {/* 5. Persistent Bottom Quiz Generation Task Dock */}
+      {generationTask && (
+        <GenerationTaskDock
+          task={generationTask}
+          onExpandModal={() => setIsGenModalOpen(true)}
+          onDismiss={() => setGenerationTask(null)}
+        />
+      )}
     </div>
   )
 }

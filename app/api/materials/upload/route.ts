@@ -25,16 +25,31 @@ export async function POST(request: NextRequest) {
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ error: 'File exceeds 10 MB limit' }, { status: 400 })
     }
-    // Dynamic import of pdf-parse (server only)
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pdfModule: any = await import('pdf-parse')
-      const pdfParse = pdfModule.default || pdfModule
+    if (file.name.endsWith('.txt') || file.name.endsWith('.md') || file.type.includes('text')) {
       const buffer = Buffer.from(await file.arrayBuffer())
-      const parsed = await pdfParse(buffer)
-      rawMarkdown = parsed.text
-    } catch {
-      return NextResponse.json({ error: 'Failed to parse PDF. Please paste text manually.' }, { status: 422 })
+      rawMarkdown = buffer.toString('utf-8')
+    } else {
+      // Dynamic import of pdf-parse (handles both v2 and v1)
+      try {
+        const buffer = Buffer.from(await file.arrayBuffer())
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pdfModule: any = await import('pdf-parse')
+        if (pdfModule.PDFParse) {
+          const parser = new pdfModule.PDFParse({ data: buffer })
+          const parsed = await parser.getText()
+          rawMarkdown = parsed.text || ''
+          await parser.destroy()
+        } else if (typeof (pdfModule.default || pdfModule) === 'function') {
+          const parseFn = pdfModule.default || pdfModule
+          const parsed = await parseFn(buffer)
+          rawMarkdown = parsed.text || ''
+        } else {
+          throw new Error('No PDF text parser found')
+        }
+      } catch (err) {
+        console.error('PDF parsing error:', err)
+        return NextResponse.json({ error: 'Failed to parse PDF. Please paste text manually.' }, { status: 422 })
+      }
     }
   } else if (urlInput) {
     const { scrapePdfUrl } = await import('@/lib/firecrawl')

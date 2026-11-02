@@ -15,12 +15,26 @@ function getCtx(): AudioContext | null {
       }
     }
     if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume()
+      audioCtx.resume().catch(() => {})
     }
     return audioCtx
   } catch {
     return null
   }
+}
+
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {})
+    }
+    window.removeEventListener('pointerdown', unlockAudio)
+    window.removeEventListener('keydown', unlockAudio)
+    window.removeEventListener('touchstart', unlockAudio)
+  }
+  window.addEventListener('pointerdown', unlockAudio, { passive: true })
+  window.addEventListener('keydown', unlockAudio, { passive: true })
+  window.addEventListener('touchstart', unlockAudio, { passive: true })
 }
 
 export function isMuted(): boolean {

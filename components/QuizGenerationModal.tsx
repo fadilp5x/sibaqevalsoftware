@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { IProgram } from '@/models'
 import { playStepTick, playCorrectSound, playWrongSound, playClickPop } from '@/lib/sounds'
+import { GenerationTaskState } from './GenerationTaskDock'
 
 interface QuizGenerationModalProps {
   isOpen: boolean
@@ -37,6 +38,7 @@ interface QuizGenerationModalProps {
   customMaterialTitle?: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onQuizGenerated: (quiz: any) => void
+  onTaskProgress?: (task: GenerationTaskState) => void
 }
 
 export default function QuizGenerationModal({
@@ -57,6 +59,7 @@ export default function QuizGenerationModal({
   saveToMaterials = false,
   customMaterialTitle = '',
   onQuizGenerated,
+  onTaskProgress,
 }: QuizGenerationModalProps) {
   const [currentStage, setCurrentStage] = useState<number>(1)
   const [progress, setProgress] = useState<number>(10)
@@ -67,6 +70,9 @@ export default function QuizGenerationModal({
   const generatedQuizRef = useRef<any>(null)
   const apiFinishedRef = useRef<boolean>(false)
   const isStartedRef = useRef<boolean>(false)
+
+  const [retryCount, setRetryCount] = useState<number>(0)
+  const startTimeRef = useRef<number>(Date.now())
 
   // Identify Dataset
   const getDatasetBadge = () => {
@@ -115,12 +121,26 @@ export default function QuizGenerationModal({
 
   const antiDupCount = program.askedQuestionRegistry?.length || 0
 
-  // Start generation & timer
+  // 1. Independent wall-clock timer (immune to render cycles / background pauses)
+  useEffect(() => {
+    if (!isOpen) {
+      setElapsedSeconds(0)
+      return
+    }
+    startTimeRef.current = Date.now()
+    const timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
+      setElapsedSeconds(elapsed)
+    }, 500)
+
+    return () => clearInterval(timerInterval)
+  }, [isOpen, retryCount])
+
+  // 2. Start generation pipeline
   useEffect(() => {
     if (!isOpen) {
       setCurrentStage(1)
       setProgress(10)
-      setElapsedSeconds(0)
       setErrorMsg('')
       setIsCompleted(false)
       generatedQuizRef.current = null
@@ -132,10 +152,7 @@ export default function QuizGenerationModal({
     if (isStartedRef.current) return
     isStartedRef.current = true
 
-    // Timer
-    const timerInterval = setInterval(() => {
-      setElapsedSeconds((s) => s + 1)
-    }, 1000)
+    let isCancelled = false
 
     // Trigger API call
     const startGeneration = async () => {
@@ -172,14 +189,25 @@ export default function QuizGenerationModal({
           })
         }
 
-        const data = await res.json()
-        if (!res.ok) {
-          throw new Error(data.error || 'Generation failed')
+        // Safe JSON parsing: Never throw "Unexpected end of JSON input" on server HTML error
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let data: any
+        try {
+          data = await res.json()
+        } catch {
+          const raw = await res.text().catch(() => '')
+          throw new Error(`Server returned error (${res.status}): ${raw.slice(0, 150) || 'Unknown error'}`)
         }
 
+        if (!res.ok) {
+          throw new Error(data?.error || `Generation failed (${res.status})`)
+        }
+
+        if (isCancelled) return
         generatedQuizRef.current = data.quiz
         apiFinishedRef.current = true
       } catch (err) {
+        if (isCancelled) return
         setErrorMsg((err as Error).message || 'Generation error')
         playWrongSound()
       }
@@ -223,31 +251,52 @@ export default function QuizGenerationModal({
     }, 500)
 
     return () => {
-      clearInterval(timerInterval)
+      isCancelled = true
       clearInterval(checkInterval)
       clearTimeout(s1)
       clearTimeout(s2)
       clearTimeout(s3)
     }
-  }, [
-    isOpen,
-    program.code,
-    candidateName,
-    difficulty,
-    questionCount,
-    engine,
-    sessionWindow,
-    useLiveSearch,
-    isRevenge,
-    language,
-    sourceMode,
-    questionFormats,
-    customSourceText,
-    saveToMaterials,
-    customMaterialTitle,
-    onClose,
-    onQuizGenerated,
-  ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, retryCount])
+
+  const getStageTitle = (stg: number) => {
+    switch (stg) {
+      case 1:
+        return 'Stage 1: Scope & Format Isolation'
+      case 2:
+        return 'Stage 2: Knowledge Grounding & Benchmarks'
+      case 3:
+        return 'Stage 3: Weakness Targeting & Registry Check'
+      case 4:
+        return `Stage 4: Synthesizing ${questionCount}Q (${language.toUpperCase()})`
+      case 5:
+        return 'Stage 5: Schema Validation & Ready'
+      default:
+        return 'Synthesizing assessment pipeline...'
+    }
+  }
+
+  // 3. Keep background generation task dock in sync
+  useEffect(() => {
+    if (!onTaskProgress || !isOpen) return
+    onTaskProgress({
+      isActive: !isCompleted && !errorMsg,
+      isCompleted,
+      programCode: program.code,
+      candidateName,
+      difficulty,
+      questionCount,
+      language,
+      stage: currentStage,
+      stageText: getStageTitle(currentStage),
+      progress,
+      elapsedSeconds,
+      generatedQuiz: generatedQuizRef.current,
+      error: errorMsg,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStage, progress, elapsedSeconds, isCompleted, errorMsg, isOpen])
 
   if (!isOpen) return null
 
@@ -497,6 +546,7 @@ export default function QuizGenerationModal({
                 setCurrentStage(1)
                 setProgress(10)
                 isStartedRef.current = false
+                setRetryCount((c) => c + 1)
               }}
               className="mt-3 px-4 py-2 rounded-xl bg-[#FF4B4B] border-b-4 border-[#EA2B2B] active:border-b-0 active:translate-y-[4px] text-white text-xs font-black uppercase flex items-center gap-1.5"
             >

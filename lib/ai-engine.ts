@@ -62,7 +62,7 @@ export async function generateWithNvidia(
         { role: 'user', content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 4096,
+      max_tokens: 8192,
     })
     const output = res.choices[0]?.message?.content || ''
     const latency = Date.now() - start
@@ -88,7 +88,7 @@ export async function generateWithOrca(
         { role: 'user', content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 4096,
+      max_tokens: 8192,
     })
     const output = res.choices[0]?.message?.content || ''
     const latency = Date.now() - start
@@ -97,9 +97,112 @@ export async function generateWithOrca(
   } catch (err) {
     const latency = Date.now() - start
     await logTelemetry('orcarouter', 'chat.completions.create', ORCA_MODEL, systemPrompt + prompt, '', latency, 'error', (err as Error).message)
-    console.warn('OrcaRouter failed, falling back to NVIDIA NIM Nemotron:', err)
+    console.warn('OrcaRouter failed, falling back to NVIDIA NIM Nemotron:', (err as Error).message)
     return generateWithNvidia(prompt, systemPrompt)
   }
+}
+
+function sanitizeQuestions(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  items: any[],
+  formatsList: ('mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')[]
+): QuizQuestion[] {
+  const validFormats = ['mcq', 'fill_blank', 'statement_verify', 'assertion_reason']
+  return items
+    .filter((q) => q && (q.questionText || q.questionStem))
+    .map((q, idx) => {
+      const stem = String(q.questionStem || q.questionText?.slice(0, 50) || `Question ${idx + 1}`)
+      const text = String(q.questionText || q.questionStem || '')
+      const opts = Array.isArray(q.options) && q.options.length === 4
+        ? q.options.map(String)
+        : Array.isArray(q.options) && q.options.length > 0
+        ? [...q.options.map(String), 'Option B', 'Option C', 'Option D'].slice(0, 4)
+        : ['Option A', 'Option B', 'Option C', 'Option D']
+      const correctIdx =
+        typeof q.correctOptionIndex === 'number' && q.correctOptionIndex >= 0 && q.correctOptionIndex < 4
+          ? q.correctOptionIndex
+          : 0
+      const topic = String(q.topicTag || 'Core Knowledge')
+      const explanation = String(q.explanation || 'Evaluated against official competition standards.')
+      const questionType = validFormats.includes(q.questionType)
+        ? q.questionType
+        : formatsList[idx % formatsList.length]
+
+      return {
+        questionStem: stem,
+        questionText: text,
+        options: opts,
+        correctOptionIndex: correctIdx,
+        topicTag: topic,
+        explanation,
+        questionType,
+      }
+    })
+}
+
+function parseAndRepairJson(
+  rawText: string,
+  formatsList: ('mcq' | 'fill_blank' | 'statement_verify' | 'assertion_reason')[]
+): QuizQuestion[] {
+  let cleaned = rawText.trim()
+
+  // 1. Strip markdown fences
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+
+  // 2. Direct slice between first '[' and last ']'
+  const firstBracket = cleaned.indexOf('[')
+  const lastBracket = cleaned.lastIndexOf(']')
+
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    try {
+      const candidate = cleaned.slice(firstBracket, lastBracket + 1)
+      const parsed = JSON.parse(candidate)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return sanitizeQuestions(parsed, formatsList)
+      }
+    } catch {
+      // continue to repair
+    }
+  }
+
+  // 3. Repair truncated array (e.g. cut off before closing ']')
+  if (firstBracket !== -1) {
+    const fromBracket = cleaned.slice(firstBracket)
+    const lastBrace = fromBracket.lastIndexOf('}')
+    if (lastBrace !== -1) {
+      try {
+        const repaired = fromBracket.slice(0, lastBrace + 1) + ']'
+        const parsed = JSON.parse(repaired)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return sanitizeQuestions(parsed, formatsList)
+        }
+      } catch {
+        // continue to regex
+      }
+    }
+  }
+
+  // 4. Regex extraction of valid question objects
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recovered: any[] = []
+  const objRegex = /\{[^{}]*"questionStem"[^{}]*"options"[^{}]*\}/g
+  let match: RegExpExecArray | null
+  while ((match = objRegex.exec(rawText)) !== null) {
+    try {
+      const q = JSON.parse(match[0])
+      if (q && (q.questionText || q.questionStem)) {
+        recovered.push(q)
+      }
+    } catch {
+      // skip fragment
+    }
+  }
+
+  if (recovered.length > 0) {
+    return sanitizeQuestions(recovered, formatsList)
+  }
+
+  throw new Error('AI returned non-JSON output. Raw: ' + rawText.slice(0, 200))
 }
 
 export interface GenerateQuizParams {
@@ -241,43 +344,14 @@ Return ONLY a valid JSON array of ${questionCount} question objects, each with k
   const prompt = `Generate exactly ${questionCount} ${difficulty.toUpperCase()} difficulty champion-level quiz questions in ${language.toUpperCase()} as a JSON array. No markdown fences, no preamble — raw JSON only.`
 
   let rawText = ''
-  try {
-    if (engine === 'nvidia') {
-      rawText = await generateWithNvidia(prompt, systemPrompt)
-    } else {
-      rawText = await generateWithOrca(prompt, systemPrompt)
-    }
-
-    // Strip markdown fences if model wraps output
-    const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-    const questions: QuizQuestion[] = JSON.parse(cleaned)
-
-    // Ensure questionType is populated
-    questions.forEach((q, idx) => {
-      if (!q.questionType || !['mcq', 'fill_blank', 'statement_verify', 'assertion_reason'].includes(q.questionType)) {
-        q.questionType = formatsList[idx % formatsList.length]
-      }
-    })
-
-    return { questions, rawText }
-  } catch {
-    // Fallback: try to extract JSON array from the response
-    const match = rawText.match(/\[[\s\S]*\]/)
-    if (match) {
-      try {
-        const questions: QuizQuestion[] = JSON.parse(match[0])
-        questions.forEach((q, idx) => {
-          if (!q.questionType || !['mcq', 'fill_blank', 'statement_verify', 'assertion_reason'].includes(q.questionType)) {
-            q.questionType = formatsList[idx % formatsList.length]
-          }
-        })
-        return { questions, rawText }
-      } catch {
-        throw new Error('AI returned malformed JSON. Raw: ' + rawText.slice(0, 300))
-      }
-    }
-    throw new Error('AI returned malformed JSON. Raw: ' + rawText.slice(0, 300))
+  if (engine === 'nvidia') {
+    rawText = await generateWithNvidia(prompt, systemPrompt)
+  } else {
+    rawText = await generateWithOrca(prompt, systemPrompt)
   }
+
+  const questions = parseAndRepairJson(rawText, formatsList)
+  return { questions, rawText }
 }
 
 export async function generateFlashcards(
