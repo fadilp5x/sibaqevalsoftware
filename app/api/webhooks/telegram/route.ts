@@ -3,9 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 // Telegram Webhook Bridge for AI Observability & Traces
 // Translates OpenRouter / Observability JSON payloads to Telegram Bot sendMessage format
 
-const DEFAULT_BOT_TOKEN = '8530986913:AAH09DFKYCe1YB5bHvQf1FqldmpwOiiThZo'
-const DEFAULT_CHAT_ID = '-1003980106624'
-
 // Safe icon representations without literal unicode pictographs in source file
 const ICON_RADAR = String.fromCodePoint(0x1f4e1)
 const ICON_ROBOT = String.fromCodePoint(0x1f916)
@@ -17,16 +14,13 @@ const ICON_CHAT = String.fromCodePoint(0x1f4ac)
 const ICON_CHECK = String.fromCodePoint(0x2705)
 
 export async function GET() {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN
-  const chatId = process.env.TELEGRAM_CHAT_ID || DEFAULT_CHAT_ID
-
   return NextResponse.json({
     status: 'online',
     endpoint: '/api/webhooks/telegram',
     service: 'SST AI Observability Telegram Bridge',
     configured: {
-      botToken: !!botToken,
-      chatId: !!chatId,
+      botToken: !!process.env.TELEGRAM_BOT_TOKEN,
+      chatId: !!process.env.TELEGRAM_CHAT_ID,
       webhookSecret: !!process.env.WEBHOOK_SECRET,
     },
     timestamp: new Date().toISOString(),
@@ -35,18 +29,19 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN
-    const chatId = process.env.TELEGRAM_CHAT_ID || DEFAULT_CHAT_ID
-    const webhookSecret = process.env.WEBHOOK_SECRET || 'sst-secret-1234'
+    const botToken = process.env.TELEGRAM_BOT_TOKEN
+    const chatId = process.env.TELEGRAM_CHAT_ID
+    const webhookSecret = process.env.WEBHOOK_SECRET
 
-    // 1. Security Header Validation (Optional check if configured)
-    const secretHeader =
-      req.headers.get('x-webhook-secret') ||
-      req.headers.get('X-Webhook-Secret') ||
-      req.nextUrl.searchParams.get('secret')
+    if (!botToken || !chatId || !webhookSecret) {
+      console.error('Telegram webhook is missing required environment configuration')
+      return NextResponse.json({ ok: false, error: 'Webhook is not configured' }, { status: 500 })
+    }
 
-    if (webhookSecret && secretHeader && secretHeader !== webhookSecret) {
-      return NextResponse.json({ error: 'Unauthorized secret token' }, { status: 401 })
+    // Require the configured secret on every request.
+    const secretHeader = req.headers.get('x-webhook-secret') || req.nextUrl.searchParams.get('secret')
+    if (!secretHeader || secretHeader !== webhookSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // 2. Parse payload safely
