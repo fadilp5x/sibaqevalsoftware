@@ -421,7 +421,7 @@ export default function ProgramHubClient({
               setIsAdminOpen(true)
             }}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-white border-2 border-[#E5E5E5] border-b-4 rounded-2xl text-xs font-black uppercase text-[#4B4B4B] hover:bg-[#F7F7F7] active:border-b-0 active:translate-y-[4px] transition-all"
-            title="Admin Control Center (adminshia / 1234)"
+            title="Admin Control Center"
           >
             <Shield className="w-4 h-4 text-[#CE82FF] stroke-[2.5]" />
             <span className="hidden sm:inline">Admin</span>

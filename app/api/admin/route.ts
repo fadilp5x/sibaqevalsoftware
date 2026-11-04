@@ -4,30 +4,8 @@ import { Program, Quiz, StudyMaterial, Attempt } from '@/models'
 
 export const dynamic = 'force-dynamic'
 
-function checkAuth(req: NextRequest, body?: { username?: string; password?: string }) {
-  const authHeader = req.headers.get('authorization') || ''
-  if (authHeader) {
-    const [user, pass] = Buffer.from(authHeader.replace('Basic ', ''), 'base64')
-      .toString('utf-8')
-      .split(':')
-    if (user === 'adminshia' && pass === '1234') return true
-  }
-
-  if (body?.username === 'adminshia' && body?.password === '1234') {
-    return true
-  }
-
-  return false
-}
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   await connectDB()
-
-  // For read overview, check basic auth header or query param token
-  const authParam = request.nextUrl.searchParams.get('auth')
-  if (authParam !== 'adminshia:1234' && !checkAuth(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   try {
     const [programs, quizzes, materials, attempts] = await Promise.all([
@@ -62,10 +40,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   await connectDB()
   const body = await request.json()
-
-  if (!checkAuth(request, body)) {
-    return NextResponse.json({ error: 'Invalid admin credentials' }, { status: 401 })
-  }
 
   const { action, payload } = body
 

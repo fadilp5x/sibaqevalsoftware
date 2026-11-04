@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import {
   Shield,
   X,
-  Lock,
   Trash2,
   Edit2,
   Check,
@@ -16,7 +15,6 @@ import {
   RotateCcw,
   Loader2,
   Flame,
-  AlertCircle,
 } from 'lucide-react'
 
 interface AdminModalProps {
@@ -28,11 +26,6 @@ interface AdminModalProps {
 type AdminTab = 'candidates' | 'programs' | 'quizzes' | 'attempts'
 
 export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModalProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [username, setUsername] = useState('adminshia')
-  const [password, setPassword] = useState('')
-  const [authError, setAuthError] = useState('')
-
   const [activeTab, setActiveTab] = useState<AdminTab>('candidates')
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -68,21 +61,11 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
 
   const [actionMessage, setActionMessage] = useState('')
 
-  // Check existing session
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedAuth = sessionStorage.getItem('sibaq_admin_auth')
-      if (savedAuth === 'adminshia:1234') {
-        setIsAuthenticated(true)
-      }
-    }
-  }, [isOpen])
-
-  // Fetch overview data once authenticated
+  // Fetch overview data directly when modal is opened
   const fetchOverview = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin?auth=adminshia:1234')
+      const res = await fetch('/api/admin')
       const data = await res.json()
       if (res.ok) {
         setCandidates(data.candidates || [])
@@ -99,33 +82,12 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
   }
 
   useEffect(() => {
-    if (isOpen && isAuthenticated) {
+    if (isOpen) {
       fetchOverview()
     }
-  }, [isOpen, isAuthenticated])
+  }, [isOpen])
 
   if (!isOpen) return null
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    setAuthError('')
-    if (username.trim() === 'adminshia' && password.trim() === '1234') {
-      setIsAuthenticated(true)
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('sibaq_admin_auth', 'adminshia:1234')
-      }
-    } else {
-      setAuthError('Invalid credentials! Default: adminshia / 1234')
-    }
-  }
-
-  const handleLogout = () => {
-    setIsAuthenticated(false)
-    setPassword('')
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('sibaq_admin_auth')
-    }
-  }
 
   // ── Admin Actions ──
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,8 +97,6 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: 'adminshia',
-          password: '1234',
           action,
           payload,
         }),
@@ -218,14 +178,6 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {isAuthenticated && (
-              <button
-                onClick={handleLogout}
-                className="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors"
-              >
-                Logout
-              </button>
-            )}
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
@@ -242,58 +194,8 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
           </div>
         )}
 
-        {/* ── Screen A: Login Screen ── */}
-        {!isAuthenticated ? (
-          <div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center max-w-md mx-auto w-full">
-            <div className="w-16 h-16 rounded-3xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4 border-2 border-rose-200">
-              <Lock className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-black text-slate-900 mb-1">Restricted Access</h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Enter coordinator credentials to manage programs, remove mistaken profiles, or delete test quizzes.
-            </p>
-
-            {authError && (
-              <div className="w-full bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold rounded-xl p-3 mb-4 flex items-center justify-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="w-full space-y-3">
-              <div>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Username"
-                  className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-rose-500 focus:bg-white"
-                  required
-                />
-              </div>
-              <div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password (1234)"
-                  className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-rose-500 focus:bg-white"
-                  required
-                  autoFocus
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-3 bg-rose-500 border-2 border-rose-600 border-b-4 border-b-rose-700 text-white font-black text-sm rounded-xl active:translate-y-[2px] active:border-b-2 transition-all shadow-md"
-              >
-                Unlock Control Center →
-              </button>
-            </form>
-            <p className="text-[11px] text-slate-400 mt-4">Default login: adminshia / 1234</p>
-          </div>
-        ) : (
-          /* ── Screen B: Control Center Dashboard ── */
-          <div className="flex-1 flex flex-col overflow-hidden">
+        {/* ── Control Center Dashboard ── */}
+        <div className="flex-1 flex flex-col overflow-hidden">
             {/* Tabs */}
             <div className="flex flex-wrap items-center justify-between gap-2 px-6 pt-4 border-b border-slate-200 bg-slate-50">
               <div className="flex gap-2">
@@ -696,7 +598,6 @@ export default function AdminModal({ isOpen, onClose, onDataChanged }: AdminModa
               )}
             </div>
           </div>
-        )}
       </div>
     </div>
   )
